@@ -1,0 +1,59 @@
+name: Bug report
+description: Report errors or unexpected behavior
+title: '[BUG] '
+labels: [bug]
+assignees: []
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Что случилось?
+      description: Краткое описание проблемы
+      placeholder: 
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как повторить?
+      description: Шаги, чтобы воспроизвести ошибку
+      placeholder: |
+        1. Создать заметку
+        2. Оставить заголовок пустым
+        3. Нажать "Сохранить"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Что должно было произойти?
+      placeholder:
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Что произошло на самом деле?
+      placeholder:
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Окружение
+      description: Версия браузера
+      placeholder: 
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Скриншот
+      description: Вставьте изображение
+    validations:
+      required: false
