@@ -1,3 +1,7 @@
+// types/index.ts
+export type BorderColor = '#bc57ca' | '#ff3856' | '#38b6ff' | '#57ca8e';
+export type NoteType = 'text' | 'list' | 'photo';
+
 export interface ListItem {
   id: string;
   text: string;
@@ -8,8 +12,8 @@ export interface Note {
   id: string;
   title: string;
   content: string | ListItem[];
-  type: 'text' | 'list' | 'photo';
-  borderColor: '#bc57ca' | '#ff3856' | '#38b6ff' | '#57ca8e';
+  type: NoteType;
+  borderColor: BorderColor;
   tags?: string[];
   pinned: boolean;
   createdAt: number;
@@ -32,13 +36,12 @@ export interface Template {
   usageCount: number;
 }
 
-export interface AppSettings {
-  theme: 'dark' | 'light';
-  sortBy: 'createdAt' | 'updatedAt' | 'priority';
-  sortDirection: 'asc' | 'desc';
+export interface Settings {
+  theme: 'light' | 'dark';
+  sortBy: 'createdAt' | 'updatedAt';
   filters: {
     pinnedOnly: boolean;
-    withImage: boolean;
-    tags: string[];
+    hasImageOnly: boolean;
+    selectedTags: string[];
   };
 }
