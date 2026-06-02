@@ -1,12 +1,29 @@
 // components/NoteCard.tsx
 import type { Note, ListItem } from '../types';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface NoteCardProps {
   note: Note;
+  onTogglePin?: (id: string) => void;
 }
 
-export function NoteCard({ note }: NoteCardProps) {
-  // Получить превью контента (первые 3 строки)
+export function NoteCard({ note, onTogglePin }: NoteCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: note.id });
+
+  const dragStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   const getContentPreview = (): string => {
     if (note.type === 'list' && Array.isArray(note.content)) {
       const items = (note.content as ListItem[]).slice(0, 3);
@@ -18,7 +35,6 @@ export function NoteCard({ note }: NoteCardProps) {
     return '';
   };
 
-  // Получить статистику для списка
   const getListStats = (): { completed: number; total: number } | null => {
     if (note.type === 'list' && Array.isArray(note.content)) {
       const items = note.content as ListItem[];
@@ -32,7 +48,6 @@ export function NoteCard({ note }: NoteCardProps) {
   const preview = getContentPreview();
   const listStats = getListStats();
 
-  // Цвет обводки из CSS-переменной
   const getBorderColorClass = () => {
     switch (note.borderColor) {
       case '#bc57ca': return 'border-purple';
@@ -43,19 +58,33 @@ export function NoteCard({ note }: NoteCardProps) {
     }
   };
 
+  const handlePinClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onTogglePin?.(note.id);
+  };
+
+  // Объединённый стиль
+  const combinedStyle = {
+    borderColor: note.borderColor,
+    boxShadow: `0 0 0 0 ${note.borderColor}40`,
+    ...dragStyle,
+  };
+
   return (
-    <div 
+    <div
+      ref={setNodeRef}
+      style={combinedStyle}
+      {...attributes}
+      {...listeners}
       className={`
         bg-black rounded-xl p-4 
         border-2 ${getBorderColorClass()}
         transition-all duration-100 
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-current/20
         break-inside-avoid mb-4
+        cursor-grab active:cursor-grabbing
+        ${isDragging ? 'cursor-grabbing' : ''}
       `}
-      style={{ 
-        borderColor: note.borderColor,
-        boxShadow: `0 0 0 0 ${note.borderColor}40`
-      }}
       onMouseEnter={(e) => {
         e.currentTarget.style.boxShadow = `0 4px 12px 0 ${note.borderColor}60`;
       }}
@@ -63,38 +92,48 @@ export function NoteCard({ note }: NoteCardProps) {
         e.currentTarget.style.boxShadow = 'none';
       }}
     >
-      {/* Заголовок с иконкой закрепления */}
       <div className="flex justify-between items-start gap-2 mb-2">
         <h3 className="text-white font-medium text-lg wrap-break-word flex-1">
           {note.title || 'Без заголовка'}
         </h3>
-        {note.pinned && (
-          <span className="text-yellow-400 text-base shrink-0" title="Закреплено">
-            📌
-          </span>
-        )}
+        <button
+          onClick={handlePinClick}
+          className={`text-base shrink-0 transition-colors ${
+            note.pinned ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-400'
+          }`}
+          title={note.pinned ? 'Открепить' : 'Закрепить'}
+        >
+          📌
+        </button>
       </div>
       
-      {/* Превью контента */}
+      {note.tags && note.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {note.tags.slice(0, 3).map((tag) => (
+            <span key={tag} className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5 rounded-full">
+              #{tag}
+            </span>
+          ))}
+          {note.tags.length > 3 && (
+            <span className="text-gray-500 text-xs">+{note.tags.length - 3}</span>
+          )}
+        </div>
+      )}
+      
       <div className="text-secondary text-sm whitespace-pre-line wrap-break-word">
         {preview || <span className="text-muted">Нет содержания</span>}
       </div>
       
-      {/* Статистика для списка */}
       {listStats && (
         <div className="text-muted text-xs mt-3 pt-2 border-t border-gray-800">
           ✓ {listStats.completed} / {listStats.total} выполнено
         </div>
       )}
 
-      {/* Placeholder для фотозаметок */}
       {note.type === 'photo' && !note.hasImage && (
-        <div className="text-muted text-xs mt-3 pt-2 border-t border-gray-800">
-          🖼️ Без фото
-        </div>
+        <div className="text-muted text-xs mt-3 pt-2 border-t border-gray-800">🖼️ Без фото</div>
       )}
       
-      {/* Индикатор типа заметки */}
       <div className="text-muted text-xs mt-2 opacity-50">
         {note.type === 'list' && '📋'}
         {note.type === 'text' && '📝'}

@@ -2,26 +2,28 @@
 import { useEffect, useState } from 'react';
 import { useNotesStore } from './store/useNotesStore';
 import { initDB } from './services/indexedDB';
-import { NoteCard } from './components/NoteCard';
 import { NoteModal } from './components/NoteModal';
+import { SortableNotesSection } from './components/SortableNotesSection';
 import type { Note } from './types';
 
 function App() {
-  const { notes, isLoading, loadNotes, addNote, updateNote, deleteNote } = useNotesStore();
+  const { notes, isLoading, loadNotes, addNote, updateNote, deleteNote, togglePin, reorderNotes } = useNotesStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
 
   useEffect(() => {
     loadNotes();
     initDB().catch(console.error);
-    
     (window as any).testNotes = { 
       addNote, 
       updateNote, 
       deleteNote, 
+      togglePin,
       getNotes: () => useNotesStore.getState().notes 
     };
-  }, [loadNotes, addNote, updateNote, deleteNote]);
+  }, [loadNotes, addNote, updateNote, deleteNote, togglePin]);
+
+  const allTags = Array.from(new Set(notes.flatMap(note => note.tags || [])));
 
   const handleSaveNote = (noteData: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (editingNote) {
@@ -46,37 +48,15 @@ function App() {
   const pinnedNotes = notes.filter(n => n.pinned);
   const unpinnedNotes = notes.filter(n => !n.pinned);
 
-  const NotesSection = ({ title, notesList }: { title: string; notesList: typeof notes }) => (
-    <div className="mb-8">
-      <h2 className="text-white text-xl font-semibold mb-4 pb-2 border-b border-gray-700">
-        {title} ({notesList.length})
-      </h2>
-      {notesList.length === 0 ? (
-        <div className="text-muted text-center py-8">
-          {title === '📌 Закреплённые' ? 'Нет закреплённых заметок' : 'Нет обычных заметок'}
-        </div>
-      ) : (
-        <div className="masonry-grid">
-          {notesList.map((note) => (
-            <div key={note.id} className="relative group">
-              <div onClick={() => handleEditNote(note)} className="cursor-pointer">
-                <NoteCard note={note} />
-              </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteNote(note.id);
-                }}
-                className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
-              >
-                Удалить
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  const handleReorderPinned = (ids: string[]) => {
+    // Получаем все ID закреплённых заметок в новом порядке
+    reorderNotes([...ids, ...unpinnedNotes.map(n => n.id)]);
+  };
+
+  const handleReorderUnpinned = (ids: string[]) => {
+    // Получаем все ID обычных заметок в новом порядке
+    reorderNotes([...pinnedNotes.map(n => n.id), ...ids]);
+  };
 
   if (isLoading) {
     return (
@@ -89,42 +69,47 @@ function App() {
   return (
     <div className="min-h-screen p-6" style={{ background: 'var(--bg-app)' }}>
       <div className="max-w-7xl mx-auto">
-        {/* Заголовок */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-primary text-3xl font-bold">Notes App</h1>
-          <button
-            onClick={handleNewNote}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-lg"
-          >
+          <button onClick={handleNewNote} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-lg">
             + Новая заметка
           </button>
         </div>
         
-        {/* Статистика */}
         <p className="text-secondary mb-4">Всего заметок: {notes.length}</p>
         
-        {/* Список заметок */}
         {notes.length === 0 ? (
           <div className="text-center text-muted py-12">
             <p>Нет заметок</p>
-            <button
-              onClick={handleNewNote}
-              className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-            >
+            <button onClick={handleNewNote} className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
               Создать первую заметку
             </button>
           </div>
         ) : (
           <>
             {pinnedNotes.length > 0 && (
-              <NotesSection title="📌 Закреплённые" notesList={pinnedNotes} />
+              <SortableNotesSection
+                title="📌 Закреплённые"
+                notes={pinnedNotes}
+                onReorder={handleReorderPinned}
+                onTogglePin={togglePin}
+                onEditNote={handleEditNote}
+                onDeleteNote={deleteNote}
+              />
             )}
-            <NotesSection title="Все заметки" notesList={unpinnedNotes} />
+            
+            <SortableNotesSection
+              title="Все заметки"
+              notes={unpinnedNotes}
+              onReorder={handleReorderUnpinned}
+              onTogglePin={togglePin}
+              onEditNote={handleEditNote}
+              onDeleteNote={deleteNote}
+            />
           </>
         )}
       </div>
 
-      {/* Модальное окно */}
       <NoteModal
         isOpen={isModalOpen}
         onClose={() => {
@@ -133,6 +118,7 @@ function App() {
         }}
         onSave={handleSaveNote}
         initialNote={editingNote}
+        allTags={allTags}
       />
 
       <style>{`

@@ -5,7 +5,7 @@ const NOTES_KEY = 'notes_v1';
 const TEMPLATES_KEY = 'templates_v1';
 const SETTINGS_KEY = 'settings_v1';
 
-// ========== ЗАМЕТКИ (полная реализация) ==========
+// ========== ЗАМЕТКИ ==========
 export function getNotes(): Note[] {
   const data = localStorage.getItem(NOTES_KEY);
   if (!data) return [];
@@ -23,7 +23,7 @@ export function saveNotes(notes: Note[]): void {
 
 export function addNote(note: Note): void {
   const notes = getNotes();
-  notes.unshift(note); // добавляем в начало
+  notes.unshift(note);
   saveNotes(notes);
 }
 
@@ -42,7 +42,7 @@ export function deleteNote(id: string): void {
   saveNotes(filtered);
 }
 
-// ========== ШАБЛОНЫ (заглушки) ==========
+// ========== ШАБЛОНЫ ==========
 export function getTemplates(): Template[] {
   const data = localStorage.getItem(TEMPLATES_KEY);
   if (!data) return [];
@@ -57,7 +57,7 @@ export function saveTemplates(templates: Template[]): void {
   localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
 }
 
-// ========== НАСТРОЙКИ (заглушки) ==========
+// ========== НАСТРОЙКИ ==========
 export function getSettings(): Settings {
   const defaults: Settings = {
     theme: 'dark',
