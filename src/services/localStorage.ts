@@ -5,13 +5,14 @@ const NOTES_KEY = 'notes_v1';
 const TEMPLATES_KEY = 'templates_v1';
 const SETTINGS_KEY = 'settings_v1';
 
-// ========== ЗАМЕТКИ ==========
+// ========== ЗАМЕТКИ (полная реализация) ==========
 export function getNotes(): Note[] {
   const data = localStorage.getItem(NOTES_KEY);
   if (!data) return [];
   try {
     return JSON.parse(data);
   } catch {
+    console.error('Ошибка парсинга заметок');
     return [];
   }
 }
@@ -20,7 +21,28 @@ export function saveNotes(notes: Note[]): void {
   localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
 }
 
-// ========== ШАБЛОНЫ ==========
+export function addNote(note: Note): void {
+  const notes = getNotes();
+  notes.unshift(note); // добавляем в начало
+  saveNotes(notes);
+}
+
+export function updateNote(id: string, updates: Partial<Note>): void {
+  const notes = getNotes();
+  const index = notes.findIndex(n => n.id === id);
+  if (index !== -1) {
+    notes[index] = { ...notes[index], ...updates, updatedAt: Date.now() };
+    saveNotes(notes);
+  }
+}
+
+export function deleteNote(id: string): void {
+  const notes = getNotes();
+  const filtered = notes.filter(n => n.id !== id);
+  saveNotes(filtered);
+}
+
+// ========== ШАБЛОНЫ (заглушки) ==========
 export function getTemplates(): Template[] {
   const data = localStorage.getItem(TEMPLATES_KEY);
   if (!data) return [];
@@ -35,7 +57,7 @@ export function saveTemplates(templates: Template[]): void {
   localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
 }
 
-// ========== НАСТРОЙКИ ==========
+// ========== НАСТРОЙКИ (заглушки) ==========
 export function getSettings(): Settings {
   const defaults: Settings = {
     theme: 'dark',
