@@ -1,16 +1,15 @@
 // App.tsx
-
 import { useEffect, useState } from 'react';
 import { useNotesStore } from './store/useNotesStore';
 import { initDB } from './services/indexedDB';
 import { NoteModal } from './components/NoteModal';
 import { SortableNotesSection } from './components/SortableNotesSection';
+import { FilterBar } from './components/FilterBar';
 import { useDebounce } from './hooks/useDebounce';
 import type { Note } from './types';
 
-
 function App() {
-  const { notes, isLoading, loadNotes, addNote, updateNote, deleteNote, togglePin, reorderNotes } = useNotesStore();
+  const { notes, isLoading, loadNotes, addNote, updateNote, deleteNote, togglePin, reorderNotes, settings, updateSettings } = useNotesStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,21 +36,46 @@ function App() {
     
     const lowerQuery = query.toLowerCase();
     return notesList.filter(note => {
-      // Поиск по заголовку
       if (note.title?.toLowerCase().includes(lowerQuery)) return true;
-      
-      // Поиск по тегам
       if (note.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))) return true;
-      
-      // Поиск по содержанию
       if (typeof note.content === 'string') {
         if (note.content.toLowerCase().includes(lowerQuery)) return true;
       } else if (Array.isArray(note.content)) {
-        // Для списков ищем по тексту пунктов
         if (note.content.some(item => item.text.toLowerCase().includes(lowerQuery))) return true;
       }
-      
       return false;
+    });
+  };
+
+  // Функция фильтрации
+  const filterNotesByFilters = (notesList: Note[]): Note[] => {
+    let filtered = [...notesList];
+    
+    if (settings.filters.pinnedOnly) {
+      filtered = filtered.filter(n => n.pinned === true);
+    }
+    
+    if (settings.filters.hasImageOnly) {
+      filtered = filtered.filter(n => n.hasImage === true);
+    }
+    
+    if (settings.filters.selectedTags.length > 0) {
+      filtered = filtered.filter(n => 
+        n.tags?.some(tag => settings.filters.selectedTags.includes(tag))
+      );
+    }
+    
+    return filtered;
+  };
+
+  // Функция сортировки
+  const sortNotes = (notesList: Note[]): Note[] => {
+    return [...notesList].sort((a, b) => {
+      if (settings.sortBy === 'createdAt') {
+        return b.createdAt - a.createdAt;
+      } else {
+        return b.updatedAt - a.updatedAt;
+      }
     });
   };
 
@@ -75,11 +99,13 @@ function App() {
     setIsModalOpen(true);
   };
 
-  // Фильтруем заметки по поиску
-  const filteredNotes = filterNotesBySearch(notes, debouncedSearchQuery);
-  
-  // Сортируем: сначала закреплённые, потом обычные
-  const sortedNotes = [...filteredNotes].sort((a, b) => {
+  // Применяем поиск → фильтры → сортировку
+  const searchedNotes = filterNotesBySearch(notes, debouncedSearchQuery);
+  const filteredByFiltersNotes = filterNotesByFilters(searchedNotes);
+  const sortedByDateNotes = sortNotes(filteredByFiltersNotes);
+
+  // Дополнительная сортировка по закреплению (закреплённые всегда сверху)
+  const finalNotes = [...sortedByDateNotes].sort((a, b) => {
     if (a.pinned === b.pinned) return 0;
     return a.pinned ? -1 : 1;
   });
@@ -88,8 +114,8 @@ function App() {
     reorderNotes(ids);
   };
 
-  // Показывать ли пустое состояние результатов поиска
-  const showNoResults = searchQuery.trim() !== '' && filteredNotes.length === 0;
+  const showNoResults = searchQuery.trim() !== '' && filteredByFiltersNotes.length === 0;
+  const showNoFiltersResults = !showNoResults && finalNotes.length === 0 && notes.length > 0;
 
   if (isLoading) {
     return (
@@ -106,7 +132,7 @@ function App() {
         <h1 className="text-primary text-3xl font-bold mb-6">Notes App</h1>
         
         {/* Поле поиска */}
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="relative">
             <input
               type="text"
@@ -129,6 +155,13 @@ function App() {
           </div>
         </div>
         
+        {/* Панель фильтрации */}
+        <FilterBar 
+          settings={settings} 
+          onSettingsChange={updateSettings} 
+          allTags={allTags} 
+        />
+        
         {/* Результаты поиска или все заметки */}
         {notes.length === 0 ? (
           <div className="text-center text-muted py-12">
@@ -140,9 +173,13 @@ function App() {
             <p>🔍 Ничего не найдено</p>
             <p className="text-sm mt-2">Попробуйте изменить запрос</p>
           </div>
+        ) : showNoFiltersResults ? (
+          <div className="text-center text-muted py-12">
+            <p>🔍 Нет заметок, соответствующих фильтрам</p>
+          </div>
         ) : (
           <SortableNotesSection
-            notes={sortedNotes}
+            notes={finalNotes}
             onReorder={handleReorder}
             onTogglePin={togglePin}
             onEditNote={handleEditNote}

@@ -1,11 +1,12 @@
 // store/useNotesStore.ts
 import { create } from 'zustand';
-import type { Note } from '../types';
-import { getNotes, saveNotes, addNote as addNoteToStorage, updateNote as updateNoteInStorage, deleteNote as deleteNoteFromStorage } from '../services/localStorage';
+import type { Note, Settings } from '../types';
+import { getNotes, saveNotes, addNote as addNoteToStorage, updateNote as updateNoteInStorage, deleteNote as deleteNoteFromStorage, getSettings, saveSettings } from '../services/localStorage';
 import { generateId, now } from '../utils/helpers';
 
 interface NotesStore {
   notes: Note[];
+  settings: Settings;
   isLoading: boolean;
   
   loadNotes: () => void;
@@ -14,18 +15,19 @@ interface NotesStore {
   deleteNote: (id: string) => void;
   togglePin: (id: string) => void;
   reorderNotes: (ids: string[]) => void;
+  updateSettings: (updates: Partial<Settings>) => void;
 }
 
 export const useNotesStore = create<NotesStore>((set, get) => ({
   notes: [],
+  settings: getSettings(),
   isLoading: true,
 
   loadNotes: () => {
     const notes = getNotes();
-    // Убеждаемся, что у всех заметок есть поле pinned (по умолчанию false)
     const normalizedNotes = notes.map(note => ({
       ...note,
-      pinned: note.pinned === true, // преобразуем undefined/null/false в false, true оставляем true
+      pinned: note.pinned === true,
     }));
     set({ notes: normalizedNotes, isLoading: false });
     console.log('📝 Загружено заметок:', normalizedNotes.length);
@@ -37,7 +39,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       id: generateId(),
       createdAt: now(),
       updatedAt: now(),
-      pinned: noteData.pinned === true, // явное приведение к boolean
+      pinned: noteData.pinned === true,
       tags: noteData.tags || [],
     };
     
@@ -78,26 +80,20 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     const newPinnedValue = !currentNote.pinned;
     console.log(`Заметка "${currentNote.title}" была ${currentNote.pinned}, станет ${newPinnedValue}`);
     
-    // Обновляем конкретную заметку
     const updatedNotes = currentNotes.map(note =>
       note.id === id 
         ? { ...note, pinned: newPinnedValue, updatedAt: now() }
         : note
     );
     
-    // Сортируем: закреплённые вверх, обычные вниз
     const sortedNotes = [...updatedNotes].sort((a, b) => {
-      // Сначала сравниваем по pinned
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
       return 0;
     });
     
-    // Сохраняем в localStorage
     saveNotes(sortedNotes);
     set({ notes: sortedNotes });
-    
-    console.log('✅ Новый статус pinned:', newPinnedValue);
   },
 
   reorderNotes: (ids: string[]) => {
@@ -109,6 +105,14 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       
       saveNotes(newNotes);
       return { notes: newNotes };
+    });
+  },
+
+  updateSettings: (updates) => {
+    set(state => {
+      const newSettings = { ...state.settings, ...updates };
+      saveSettings(newSettings);
+      return { settings: newSettings };
     });
   },
 }));
