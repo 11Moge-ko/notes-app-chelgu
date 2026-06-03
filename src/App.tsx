@@ -45,17 +45,17 @@ function App() {
     setIsModalOpen(true);
   };
 
-  const pinnedNotes = notes.filter(n => n.pinned);
-  const unpinnedNotes = notes.filter(n => !n.pinned);
+  // Сортируем: сначала закреплённые, потом обычные (без визуального разделения)
+  const sortedNotes = [...notes].sort((a, b) => {
+    if (a.pinned === b.pinned) return 0;
+    return a.pinned ? -1 : 1;
+  });
 
-  const handleReorderPinned = (ids: string[]) => {
-    // Получаем все ID закреплённых заметок в новом порядке
-    reorderNotes([...ids, ...unpinnedNotes.map(n => n.id)]);
-  };
+  const pinnedIds = sortedNotes.filter(n => n.pinned).map(n => n.id);
+  const unpinnedIds = sortedNotes.filter(n => !n.pinned).map(n => n.id);
 
-  const handleReorderUnpinned = (ids: string[]) => {
-    // Получаем все ID обычных заметок в новом порядке
-    reorderNotes([...pinnedNotes.map(n => n.id), ...ids]);
+  const handleReorder = (ids: string[]) => {
+    reorderNotes(ids);
   };
 
   if (isLoading) {
@@ -69,46 +69,36 @@ function App() {
   return (
     <div className="min-h-screen p-6" style={{ background: 'var(--bg-app)' }}>
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-primary text-3xl font-bold">Notes App</h1>
-          <button onClick={handleNewNote} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-lg">
-            + Новая заметка
-          </button>
-        </div>
-        
-        <p className="text-secondary mb-4">Всего заметок: {notes.length}</p>
+        {/* Только заголовок, без счётчика и лишних кнопок */}
+        <h1 className="text-primary text-3xl font-bold mb-6">Notes App</h1>
         
         {notes.length === 0 ? (
           <div className="text-center text-muted py-12">
             <p>Нет заметок</p>
-            <button onClick={handleNewNote} className="mt-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
-              Создать первую заметку
-            </button>
+            <p className="text-sm mt-2">Нажмите кнопку +, чтобы создать первую</p>
           </div>
         ) : (
-          <>
-            {pinnedNotes.length > 0 && (
-              <SortableNotesSection
-                title="📌 Закреплённые"
-                notes={pinnedNotes}
-                onReorder={handleReorderPinned}
-                onTogglePin={togglePin}
-                onEditNote={handleEditNote}
-                onDeleteNote={deleteNote}
-              />
-            )}
-            
-            <SortableNotesSection
-              title="Все заметки"
-              notes={unpinnedNotes}
-              onReorder={handleReorderUnpinned}
-              onTogglePin={togglePin}
-              onEditNote={handleEditNote}
-              onDeleteNote={deleteNote}
-            />
-          </>
+          <SortableNotesSection
+            title=""
+            notes={sortedNotes}
+            onReorder={handleReorder}
+            onTogglePin={togglePin}
+            onEditNote={handleEditNote}
+            onDeleteNote={deleteNote}
+            pinnedIds={pinnedIds}
+            unpinnedIds={unpinnedIds}
+          />
         )}
       </div>
+
+      {/* Кнопка "+" в правом нижнем углу */}
+      <button
+        onClick={handleNewNote}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white text-3xl font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center z-20"
+        title="Новая заметка"
+      >
+        +
+      </button>
 
       <NoteModal
         isOpen={isModalOpen}

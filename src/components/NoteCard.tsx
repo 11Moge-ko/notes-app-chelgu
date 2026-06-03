@@ -63,7 +63,6 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
     onTogglePin?.(note.id);
   };
 
-  // Объединённый стиль
   const combinedStyle = {
     borderColor: note.borderColor,
     boxShadow: `0 0 0 0 ${note.borderColor}40`,
