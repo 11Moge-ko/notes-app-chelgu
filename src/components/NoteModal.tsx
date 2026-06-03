@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Note, ListItem, BorderColor, NoteType } from '../types';
 import { generateId } from '../utils/helpers';
 import { TagInput } from './TagInput';
+import { ColorPicker } from './ColorPicker';
 
 interface NoteModalProps {
   isOpen: boolean;
@@ -156,8 +157,6 @@ export function NoteModal({ isOpen, onClose, onSave, initialNote, allTags = [] }
 
   if (!isOpen) return null;
 
-  const colors: BorderColor[] = ['#bc57ca', '#ff3856', '#38b6ff', '#57ca8e'];
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && handleClose()}>
       <div className="bg-black rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border-2" style={{ borderColor }}>
@@ -167,48 +166,96 @@ export function NoteModal({ isOpen, onClose, onSave, initialNote, allTags = [] }
         </div>
         
         <div className="p-4 space-y-4">
-          <input type="text" placeholder="Заголовок" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full bg-gray-900 text-white text-lg font-medium px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500" />
+          {/* Заголовок */}
+          <input
+            type="text"
+            placeholder="Заголовок"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full bg-gray-900 text-white text-lg font-medium px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500"
+          />
           
+          {/* Переключение типа */}
           <div className="flex gap-2">
-            <button onClick={() => setType('text')} className={`flex-1 px-4 py-2 rounded-lg transition-colors ${type === 'text' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>📝 Текст</button>
-            <button onClick={() => setType('list')} className={`flex-1 px-4 py-2 rounded-lg transition-colors ${type === 'list' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>✓ Список</button>
+            <button
+              onClick={() => setType('text')}
+              className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+                type === 'text' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              📝 Текст
+            </button>
+            <button
+              onClick={() => setType('list')}
+              className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+                type === 'list' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              ✓ Список
+            </button>
           </div>
           
+          {/* Контент */}
           {type === 'text' ? (
-            <textarea placeholder="Текст заметки..." value={textContent} onChange={(e) => setTextContent(e.target.value)} rows={8} className="w-full bg-gray-900 text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500 resize-none" />
+            <textarea
+              placeholder="Текст заметки..."
+              value={textContent}
+              onChange={(e) => setTextContent(e.target.value)}
+              rows={8}
+              className="w-full bg-gray-900 text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500 resize-none"
+            />
           ) : (
             <div className="space-y-2">
               {listItems.map((item) => (
                 <div key={item.id} className="flex items-center gap-2 bg-gray-900 rounded-lg p-2">
-                  <input type="checkbox" checked={item.isChecked} onChange={() => toggleListItem(item.id)} className="w-5 h-5 accent-purple-600" />
-                  <input type="text" value={item.text} onChange={(e) => updateListItem(item.id, e.target.value)} placeholder="Пункт списка..." className="flex-1 bg-transparent text-white px-2 py-1 focus:outline-none" />
+                  <input
+                    type="checkbox"
+                    checked={item.isChecked}
+                    onChange={() => toggleListItem(item.id)}
+                    className="w-5 h-5 accent-purple-600"
+                  />
+                  <input
+                    type="text"
+                    value={item.text}
+                    onChange={(e) => updateListItem(item.id, e.target.value)}
+                    placeholder="Пункт списка..."
+                    className="flex-1 bg-transparent text-white px-2 py-1 focus:outline-none"
+                  />
                   <button onClick={() => deleteListItem(item.id)} className="text-red-400 hover:text-red-300 px-2">🗑️</button>
                 </div>
               ))}
-              <button onClick={addListItem} className="w-full text-gray-400 hover:text-white text-sm py-2 border border-dashed border-gray-700 rounded-lg hover:border-gray-500 transition-colors">+ Добавить пункт</button>
+              <button
+                onClick={addListItem}
+                className="w-full text-gray-400 hover:text-white text-sm py-2 border border-dashed border-gray-700 rounded-lg hover:border-gray-500 transition-colors"
+              >
+                + Добавить пункт
+              </button>
             </div>
           )}
           
+          {/* Теги */}
           <TagInput tags={tags} onAddTag={handleAddTag} onRemoveTag={handleRemoveTag} existingTags={allTags} maxTags={5} />
           
+          {/* Ошибка валидации */}
           {error && <div className="text-red-400 text-sm text-center">{error}</div>}
           
-          <div className="space-y-2">
-            <label className="text-gray-400 text-sm">Цвет обводки</label>
-            <div className="flex gap-3">
-              {colors.map((color) => (
-                <button key={color} onClick={() => setBorderColor(color)} className={`w-8 h-8 rounded-full transition-all ${borderColor === color ? 'ring-2 ring-white scale-110' : ''}`} style={{ backgroundColor: color }} />
-              ))}
-            </div>
-          </div>
+          {/* ВЫБОР ЦВЕТА - теперь через ColorPicker */}
+          <ColorPicker selectedColor={borderColor} onColorChange={setBorderColor} />
           
+          {/* Закрепить */}
           <div className="flex items-center gap-2">
-            <button onClick={() => setPinned(!pinned)} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${pinned ? 'bg-yellow-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+            <button
+              onClick={() => setPinned(!pinned)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                pinned ? 'bg-yellow-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
               <span>📌</span>
               <span>{pinned ? 'Закреплено' : 'Закрепить'}</span>
             </button>
           </div>
           
+          {/* Кнопки */}
           <div className="flex gap-3 pt-4 border-t border-gray-800">
             <button onClick={handleClose} className="flex-1 px-4 py-2 bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors">Отмена</button>
             <button onClick={handleSave} className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">Сохранить</button>

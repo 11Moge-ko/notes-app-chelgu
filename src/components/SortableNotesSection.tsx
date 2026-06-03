@@ -18,14 +18,14 @@ import { NoteCard } from './NoteCard';
 import type { Note } from '../types';
 
 interface SortableNotesSectionProps {
-  title?: string;
   notes: Note[];
   onReorder: (ids: string[]) => void;
   onTogglePin: (id: string) => void;
   onEditNote: (note: Note) => void;
   onDeleteNote: (id: string) => void;
-  pinnedIds: string[];
-  unpinnedIds: string[];
+  // pinnedIds и unpinnedIds теперь опциональны (необязательны)
+  pinnedIds?: string[];
+  unpinnedIds?: string[];
 }
 
 export function SortableNotesSection({
@@ -34,8 +34,6 @@ export function SortableNotesSection({
   onTogglePin,
   onEditNote,
   onDeleteNote,
-  pinnedIds,
-  unpinnedIds,
 }: SortableNotesSectionProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {

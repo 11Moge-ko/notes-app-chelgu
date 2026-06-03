@@ -45,14 +45,16 @@ function App() {
     setIsModalOpen(true);
   };
 
-  // Сортируем: сначала закреплённые, потом обычные (без визуального разделения)
+  // ПРАВИЛЬНАЯ СОРТИРОВКА: сначала закреплённые (pinned === true), потом обычные
   const sortedNotes = [...notes].sort((a, b) => {
+    // Если оба закреплены или оба не закреплены — сохраняем порядок
     if (a.pinned === b.pinned) return 0;
+    // Закреплённые вперёд
     return a.pinned ? -1 : 1;
   });
 
-  const pinnedIds = sortedNotes.filter(n => n.pinned).map(n => n.id);
-  const unpinnedIds = sortedNotes.filter(n => !n.pinned).map(n => n.id);
+  // Для отладки: выводим в консоль статус pinned каждой заметки
+  console.log('📊 Статус закрепления:', notes.map(n => ({ id: n.id, title: n.title, pinned: n.pinned })));
 
   const handleReorder = (ids: string[]) => {
     reorderNotes(ids);
@@ -69,7 +71,6 @@ function App() {
   return (
     <div className="min-h-screen p-6" style={{ background: 'var(--bg-app)' }}>
       <div className="max-w-7xl mx-auto">
-        {/* Только заголовок, без счётчика и лишних кнопок */}
         <h1 className="text-primary text-3xl font-bold mb-6">Notes App</h1>
         
         {notes.length === 0 ? (
@@ -79,19 +80,15 @@ function App() {
           </div>
         ) : (
           <SortableNotesSection
-            title=""
-            notes={sortedNotes}
-            onReorder={handleReorder}
-            onTogglePin={togglePin}
-            onEditNote={handleEditNote}
-            onDeleteNote={deleteNote}
-            pinnedIds={pinnedIds}
-            unpinnedIds={unpinnedIds}
-          />
+  notes={sortedNotes}
+  onReorder={handleReorder}
+  onTogglePin={togglePin}  // должна быть эта функция из store
+  onEditNote={handleEditNote}
+  onDeleteNote={deleteNote}
+/>
         )}
       </div>
 
-      {/* Кнопка "+" в правом нижнем углу */}
       <button
         onClick={handleNewNote}
         className="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white text-3xl font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center z-20"
@@ -114,7 +111,7 @@ function App() {
       <style>{`
         .masonry-grid {
           column-count: 2;
-          column-gap: 16px;
+          column-gap: 24px;
         }
         @media (min-width: 768px) {
           .masonry-grid { column-count: 3; }

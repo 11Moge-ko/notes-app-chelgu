@@ -48,20 +48,14 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
   const preview = getContentPreview();
   const listStats = getListStats();
 
-  const getBorderColorClass = () => {
-    switch (note.borderColor) {
-      case '#bc57ca': return 'border-purple';
-      case '#ff3856': return 'border-pink';
-      case '#38b6ff': return 'border-blue';
-      case '#57ca8e': return 'border-green';
-      default: return 'border-purple';
-    }
-  };
-
   const handlePinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
+    console.log('📌 Клик, заметка:', note.id, 'текущий pinned:', note.pinned);
     onTogglePin?.(note.id);
   };
+
+  const isPinned = note.pinned === true;
 
   const combinedStyle = {
     borderColor: note.borderColor,
@@ -77,7 +71,7 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
       {...listeners}
       className={`
         bg-black rounded-xl p-4 
-        border-2 ${getBorderColorClass()}
+        border-2
         transition-all duration-100 
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-current/20
         break-inside-avoid mb-4
@@ -91,21 +85,25 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
         e.currentTarget.style.boxShadow = 'none';
       }}
     >
+      {/* Заголовок и кнопка закрепления в одной строке */}
       <div className="flex justify-between items-start gap-2 mb-2">
-        <h3 className="text-white font-medium text-lg wrap-break-word flex-1">
-          {note.title || 'Без заголовка'}
-        </h3>
         <button
           onClick={handlePinClick}
-          className={`text-base shrink-0 transition-colors ${
-            note.pinned ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-400'
+          className={`text-base shrink-0 transition-all duration-200 mb-2 ${
+            isPinned 
+              ? 'text-yellow-400 scale-110' 
+              : 'text-gray-500 hover:text-yellow-400 hover:scale-110'
           }`}
-          title={note.pinned ? 'Открепить' : 'Закрепить'}
+          title={isPinned ? 'Открепить' : 'Закрепить'}
         >
-          📌
+          {isPinned ? '📌' : '📍'}
         </button>
+        <h3 className="text-white font-medium text-lg wrap-break-word flex-1 text-right">
+          {note.title || 'Без заголовка'}
+        </h3>
       </div>
       
+      {/* Теги */}
       {note.tags && note.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
           {note.tags.slice(0, 3).map((tag) => (
@@ -119,20 +117,26 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
         </div>
       )}
       
+      {/* Превью контента */}
       <div className="text-secondary text-sm whitespace-pre-line wrap-break-word">
         {preview || <span className="text-muted">Нет содержания</span>}
       </div>
       
+      {/* Статистика для списка */}
       {listStats && (
         <div className="text-muted text-xs mt-3 pt-2 border-t border-gray-800">
           ✓ {listStats.completed} / {listStats.total} выполнено
         </div>
       )}
 
+      {/* Плейсхолдер для фото */}
       {note.type === 'photo' && !note.hasImage && (
-        <div className="text-muted text-xs mt-3 pt-2 border-t border-gray-800">🖼️ Без фото</div>
+        <div className="text-muted text-xs mt-3 pt-2 border-t border-gray-800">
+          🖼️ Без фото
+        </div>
       )}
       
+      {/* Индикатор типа заметки */}
       <div className="text-muted text-xs mt-2 opacity-50">
         {note.type === 'list' && '📋'}
         {note.type === 'text' && '📝'}
