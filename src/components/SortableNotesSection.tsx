@@ -18,21 +18,24 @@ import { NoteCard } from './NoteCard';
 import type { Note } from '../types';
 
 interface SortableNotesSectionProps {
-  title: string;
+  title?: string;
   notes: Note[];
   onReorder: (ids: string[]) => void;
   onTogglePin: (id: string) => void;
   onEditNote: (note: Note) => void;
   onDeleteNote: (id: string) => void;
+  pinnedIds: string[];
+  unpinnedIds: string[];
 }
 
 export function SortableNotesSection({
-  title,
   notes,
   onReorder,
   onTogglePin,
   onEditNote,
   onDeleteNote,
+  pinnedIds,
+  unpinnedIds,
 }: SortableNotesSectionProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -58,52 +61,41 @@ export function SortableNotesSection({
 
   if (notes.length === 0) {
     return (
-      <div className="mb-8">
-        <h2 className="text-white text-xl font-semibold mb-4 pb-2 border-b border-gray-700">
-          {title} (0)
-        </h2>
-        <div className="text-muted text-center py-8">
-          {title.includes('Закреплённые') ? 'Нет закреплённых заметок' : 'Нет обычных заметок'}
-        </div>
+      <div className="text-muted text-center py-8">
+        Нет заметок
       </div>
     );
   }
 
   return (
-    <div className="mb-8">
-      <h2 className="text-white text-xl font-semibold mb-4 pb-2 border-b border-gray-700">
-        {title} ({notes.length})
-      </h2>
-      
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext
+        items={notes.map((n) => n.id)}
+        strategy={verticalListSortingStrategy}
       >
-        <SortableContext
-          items={notes.map((n) => n.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="masonry-grid">
-            {notes.map((note) => (
-              <div key={note.id} className="relative group">
-                <div onClick={() => onEditNote(note)} className="cursor-pointer">
-                  <NoteCard note={note} onTogglePin={onTogglePin} />
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteNote(note.id);
-                  }}
-                  className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                >
-                  Удалить
-                </button>
+        <div className="masonry-grid">
+          {notes.map((note) => (
+            <div key={note.id} className="relative group">
+              <div onClick={() => onEditNote(note)} className="cursor-pointer">
+                <NoteCard note={note} onTogglePin={onTogglePin} />
               </div>
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
-    </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteNote(note.id);
+                }}
+                className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
+              >
+                Удалить
+              </button>
+            </div>
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 }
