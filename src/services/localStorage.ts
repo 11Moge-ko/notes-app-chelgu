@@ -12,12 +12,34 @@ export function getNotes(): Note[] {
   try {
     return JSON.parse(data);
   } catch {
+    console.error('Ошибка парсинга заметок');
     return [];
   }
 }
 
 export function saveNotes(notes: Note[]): void {
   localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+}
+
+export function addNote(note: Note): void {
+  const notes = getNotes();
+  notes.unshift(note);
+  saveNotes(notes);
+}
+
+export function updateNote(id: string, updates: Partial<Note>): void {
+  const notes = getNotes();
+  const index = notes.findIndex(n => n.id === id);
+  if (index !== -1) {
+    notes[index] = { ...notes[index], ...updates, updatedAt: Date.now() };
+    saveNotes(notes);
+  }
+}
+
+export function deleteNote(id: string): void {
+  const notes = getNotes();
+  const filtered = notes.filter(n => n.id !== id);
+  saveNotes(filtered);
 }
 
 // ========== ШАБЛОНЫ ==========

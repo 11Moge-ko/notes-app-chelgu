@@ -1,52 +1,99 @@
 // store/useNotesStore.ts
 import { create } from 'zustand';
-import type { Note, Settings } from '../types';
-import { getNotes, saveNotes, getSettings, saveSettings } from '../services/localStorage';
+import type { Note } from '../types';
+import { getNotes, saveNotes, addNote as addNoteToStorage, updateNote as updateNoteInStorage, deleteNote as deleteNoteFromStorage } from '../services/localStorage';
+import { generateId, now } from '../utils/helpers';
 
 interface NotesStore {
   notes: Note[];
-  settings: Settings;
   isLoading: boolean;
+  
   loadNotes: () => void;
-  addNote: (note: Note) => void;
+  addNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
-  updateSettings: (updates: Partial<Settings>) => void;
+  togglePin: (id: string) => void;
+  reorderNotes: (ids: string[]) => void;
 }
 
-export const useNotesStore = create<NotesStore>((set, get) => ({
+export const useNotesStore = create<NotesStore>((set) => ({
   notes: [],
-  settings: getSettings(),
   isLoading: true,
 
   loadNotes: () => {
     const notes = getNotes();
     set({ notes, isLoading: false });
+    console.log('📝 Загружено заметок:', notes.length);
   },
 
-  addNote: (note) => {
-    const newNotes = [note, ...get().notes];
-    set({ notes: newNotes });
-    saveNotes(newNotes);
+  addNote: (noteData) => {
+    const newNote: Note = {
+      ...noteData,
+      id: generateId(),
+      createdAt: now(),
+      updatedAt: now(),
+      pinned: noteData.pinned || false,
+      tags: noteData.tags || [],
+    };
+    
+    addNoteToStorage(newNote);
+    set(state => ({ notes: [newNote, ...state.notes] }));
+    console.log('✅ Добавлена заметка:', newNote.id);
+    return newNote;
   },
 
   updateNote: (id, updates) => {
-    const newNotes = get().notes.map((note) =>
-      note.id === id ? { ...note, ...updates, updatedAt: Date.now() } : note
-    );
-    set({ notes: newNotes });
-    saveNotes(newNotes);
+    updateNoteInStorage(id, updates);
+    set(state => ({
+      notes: state.notes.map(note =>
+        note.id === id ? { ...note, ...updates, updatedAt: now() } : note
+      )
+    }));
+    console.log('✏️ Обновлена заметка:', id);
   },
 
   deleteNote: (id) => {
-    const newNotes = get().notes.filter((note) => note.id !== id);
-    set({ notes: newNotes });
-    saveNotes(newNotes);
+    deleteNoteFromStorage(id);
+    set(state => ({
+      notes: state.notes.filter(note => note.id !== id)
+    }));
+    console.log('🗑️ Удалена заметка:', id);
   },
 
-  updateSettings: (updates) => {
-    const newSettings = { ...get().settings, ...updates };
-    set({ settings: newSettings });
-    saveSettings(newSettings);
+  togglePin: (id: string) => {
+    set(state => {
+      const note = state.notes.find(n => n.id === id);
+      if (!note) return state;
+      
+      const newPinned = !note.pinned;
+      const updatedNotes = state.notes.map(n =>
+        n.id === id ? { ...n, pinned: newPinned, updatedAt: now() } : n
+      );
+      
+      // Сортируем: закреплённые сверху
+      const sortedNotes = [...updatedNotes].sort((a, b) => {
+        if (a.pinned === b.pinned) return 0;
+        return a.pinned ? -1 : 1;
+      });
+      
+      saveNotes(sortedNotes);
+      return { notes: sortedNotes };
+    });
+  },
+
+  reorderNotes: (ids: string[]) => {
+    set(state => {
+      // Создаём карту заметок для быстрого доступа
+      const notesMap = new Map(state.notes.map(note => [note.id, note]));
+      // Сортируем согласно переданному порядку ID
+      const reorderedNotes = ids.map(id => notesMap.get(id)).filter(Boolean) as Note[];
+      
+      // Добавляем заметки, которые не вошли в перестановку (на всякий случай)
+      const remainingNotes = state.notes.filter(note => !ids.includes(note.id));
+      const newNotes = [...reorderedNotes, ...remainingNotes];
+      
+      saveNotes(newNotes);
+      return { notes: newNotes };
+    });
   },
 }));
