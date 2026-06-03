@@ -5,19 +5,30 @@ import { initDB } from './services/indexedDB';
 import { NoteModal } from './components/NoteModal';
 import { SortableNotesSection } from './components/SortableNotesSection';
 import { FilterBar } from './components/FilterBar';
+import { TemplateModal } from './components/TemplateModal';
+import { SaveTemplateModal } from './components/SaveTemplateModal';
 import { useDebounce } from './hooks/useDebounce';
 import type { Note } from './types';
 
 function App() {
-  const { notes, isLoading, loadNotes, addNote, updateNote, deleteNote, togglePin, reorderNotes, settings, updateSettings } = useNotesStore();
+  const { 
+    notes, isLoading, loadNotes, addNote, updateNote, deleteNote, 
+    togglePin, reorderNotes, settings, updateSettings,
+    templates, loadTemplates, saveAsTemplate, applyTemplate, deleteTemplate
+  } = useNotesStore();
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [currentNoteForTemplate, setCurrentNoteForTemplate] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   useEffect(() => {
     loadNotes();
+    loadTemplates();
     initDB().catch(console.error);
     (window as any).testNotes = { 
       addNote, 
@@ -26,11 +37,10 @@ function App() {
       togglePin,
       getNotes: () => useNotesStore.getState().notes 
     };
-  }, [loadNotes, addNote, updateNote, deleteNote, togglePin]);
+  }, [loadNotes, loadTemplates, addNote, updateNote, deleteNote, togglePin]);
 
   const allTags = Array.from(new Set(notes.flatMap(note => note.tags || [])));
 
-  // Функция поиска
   const filterNotesBySearch = (notesList: Note[], query: string): Note[] => {
     if (!query.trim()) return notesList;
     
@@ -47,7 +57,6 @@ function App() {
     });
   };
 
-  // Функция фильтрации
   const filterNotesByFilters = (notesList: Note[]): Note[] => {
     let filtered = [...notesList];
     
@@ -68,7 +77,6 @@ function App() {
     return filtered;
   };
 
-  // Функция сортировки
   const sortNotes = (notesList: Note[]): Note[] => {
     return [...notesList].sort((a, b) => {
       if (settings.sortBy === 'createdAt') {
@@ -99,12 +107,17 @@ function App() {
     setIsModalOpen(true);
   };
 
-  // Применяем поиск → фильтры → сортировку
+  const handleOpenSaveTemplateModal = () => {
+    if (editingNote) {
+      setCurrentNoteForTemplate(editingNote);
+      setIsSaveTemplateModalOpen(true);
+    } else {}
+  };
+
   const searchedNotes = filterNotesBySearch(notes, debouncedSearchQuery);
   const filteredByFiltersNotes = filterNotesByFilters(searchedNotes);
   const sortedByDateNotes = sortNotes(filteredByFiltersNotes);
 
-  // Дополнительная сортировка по закреплению (закреплённые всегда сверху)
   const finalNotes = [...sortedByDateNotes].sort((a, b) => {
     if (a.pinned === b.pinned) return 0;
     return a.pinned ? -1 : 1;
@@ -128,12 +141,10 @@ function App() {
   return (
     <div className="min-h-screen p-6" style={{ background: 'var(--bg-app)' }}>
       <div className="max-w-7xl mx-auto">
-        {/* Заголовок */}
         <h1 className="text-primary text-3xl font-bold mb-6">Notes App</h1>
         
-        {/* Поле поиска */}
-        <div className="mb-4">
-          <div className="relative">
+        <div className="mb-4 flex gap-3">
+          <div className="relative flex-1">
             <input
               type="text"
               value={searchQuery}
@@ -141,9 +152,7 @@ function App() {
               placeholder="Поиск по заметкам..."
               className="w-full bg-gray-900 text-white px-4 py-3 pl-10 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
             />
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg">
-              🔍
-            </span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg">🔍</span>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
@@ -153,16 +162,17 @@ function App() {
               </button>
             )}
           </div>
+          
+          <button
+            onClick={() => setIsTemplateModalOpen(true)}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+          >
+            📋 Шаблоны
+          </button>
         </div>
         
-        {/* Панель фильтрации */}
-        <FilterBar 
-          settings={settings} 
-          onSettingsChange={updateSettings} 
-          allTags={allTags} 
-        />
+        <FilterBar settings={settings} onSettingsChange={updateSettings} allTags={allTags} />
         
-        {/* Результаты поиска или все заметки */}
         {notes.length === 0 ? (
           <div className="text-center text-muted py-12">
             <p>Нет заметок</p>
@@ -188,7 +198,6 @@ function App() {
         )}
       </div>
 
-      {/* Кнопка "+" в правом нижнем углу */}
       <button
         onClick={handleNewNote}
         className="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white text-3xl font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center z-20"
@@ -206,6 +215,35 @@ function App() {
         onSave={handleSaveNote}
         initialNote={editingNote}
         allTags={allTags}
+        onSaveAsTemplate={handleOpenSaveTemplateModal}
+        isTemplateLimitReached={templates.length >= 20}
+      />
+
+      <TemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onSelectTemplate={(template) => {
+          const noteData = applyTemplate(template);
+          addNote(noteData);
+          setIsTemplateModalOpen(false);
+        }}
+        templates={templates}
+        onDeleteTemplate={deleteTemplate}
+      />
+
+      <SaveTemplateModal
+        isOpen={isSaveTemplateModalOpen}
+        onClose={() => {
+          setIsSaveTemplateModalOpen(false);
+          setCurrentNoteForTemplate(null);
+        }}
+        onSave={(name, description) => {
+          if (currentNoteForTemplate) {
+            saveAsTemplate(name, description, currentNoteForTemplate);
+          }
+          setIsSaveTemplateModalOpen(false);
+          setCurrentNoteForTemplate(null);
+        }}
       />
 
       <style>{`

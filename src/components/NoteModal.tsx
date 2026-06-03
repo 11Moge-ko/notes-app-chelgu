@@ -11,11 +11,21 @@ interface NoteModalProps {
   onSave: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => void;
   initialNote?: Note | null;
   allTags?: string[];
+  onSaveAsTemplate?: () => void;
+  isTemplateLimitReached?: boolean;
 }
 
 const DRAFT_KEY = 'draft_v1';
 
-export function NoteModal({ isOpen, onClose, onSave, initialNote, allTags = [] }: NoteModalProps) {
+export function NoteModal({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  initialNote, 
+  allTags = [],
+  onSaveAsTemplate,
+  isTemplateLimitReached = false
+}: NoteModalProps) {
   const [title, setTitle] = useState('');
   const [type, setType] = useState<NoteType>('text');
   const [textContent, setTextContent] = useState('');
@@ -70,7 +80,6 @@ export function NoteModal({ isOpen, onClose, onSave, initialNote, allTags = [] }
     const draft = { title, type, borderColor, pinned, tags, textContent, listItems };
     const interval = setInterval(() => {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-      console.log('💾 Черновик сохранён');
     }, 30000);
     
     return () => clearInterval(interval);
@@ -155,6 +164,10 @@ export function NoteModal({ isOpen, onClose, onSave, initialNote, allTags = [] }
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, handleClose]);
 
+  const hasContent = type === 'text' 
+    ? textContent.trim().length > 0 
+    : listItems.some(item => item.text.trim().length > 0);
+
   if (!isOpen) return null;
 
   return (
@@ -166,7 +179,6 @@ export function NoteModal({ isOpen, onClose, onSave, initialNote, allTags = [] }
         </div>
         
         <div className="p-4 space-y-4">
-          {/* Заголовок */}
           <input
             type="text"
             placeholder="Заголовок"
@@ -175,7 +187,6 @@ export function NoteModal({ isOpen, onClose, onSave, initialNote, allTags = [] }
             className="w-full bg-gray-900 text-white text-lg font-medium px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500"
           />
           
-          {/* Переключение типа */}
           <div className="flex gap-2">
             <button
               onClick={() => setType('text')}
@@ -195,7 +206,6 @@ export function NoteModal({ isOpen, onClose, onSave, initialNote, allTags = [] }
             </button>
           </div>
           
-          {/* Контент */}
           {type === 'text' ? (
             <textarea
               placeholder="Текст заметки..."
@@ -233,16 +243,12 @@ export function NoteModal({ isOpen, onClose, onSave, initialNote, allTags = [] }
             </div>
           )}
           
-          {/* Теги */}
           <TagInput tags={tags} onAddTag={handleAddTag} onRemoveTag={handleRemoveTag} existingTags={allTags} maxTags={5} />
           
-          {/* Ошибка валидации */}
           {error && <div className="text-red-400 text-sm text-center">{error}</div>}
           
-          {/* ВЫБОР ЦВЕТА - теперь через ColorPicker */}
           <ColorPicker selectedColor={borderColor} onColorChange={setBorderColor} />
           
-          {/* Закрепить */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPinned(!pinned)}
@@ -255,11 +261,36 @@ export function NoteModal({ isOpen, onClose, onSave, initialNote, allTags = [] }
             </button>
           </div>
           
-          {/* Кнопки */}
           <div className="flex gap-3 pt-4 border-t border-gray-800">
-            <button onClick={handleClose} className="flex-1 px-4 py-2 bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors">Отмена</button>
-            <button onClick={handleSave} className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">Сохранить</button>
+            <button
+              onClick={handleClose}
+              className="flex-1 px-4 py-2 bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Отмена
+            </button>
+            
+            {onSaveAsTemplate && !isTemplateLimitReached && hasContent && (
+              <button
+                onClick={onSaveAsTemplate}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                📋 Сохранить как шаблон
+              </button>
+            )}
+            
+            <button
+              onClick={handleSave}
+              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Сохранить
+            </button>
           </div>
+          
+          {isTemplateLimitReached && (
+            <div className="text-yellow-500 text-sm text-center">
+              Достигнут лимит шаблонов (20). Удалите неиспользуемый
+            </div>
+          )}
         </div>
       </div>
     </div>

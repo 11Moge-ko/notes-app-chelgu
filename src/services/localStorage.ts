@@ -76,3 +76,28 @@ export function getSettings(): Settings {
 export function saveSettings(settings: Settings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
+
+// ========== ШАБЛОНЫ (полная реализация) ==========
+export function addTemplate(template: Template): void {
+  const templates = getTemplates();
+  if (templates.length >= 20) {
+    throw new Error('Достигнут лимит шаблонов (20)');
+  }
+  templates.unshift(template);
+  saveTemplates(templates);
+}
+
+export function deleteTemplate(id: string): void {
+  const templates = getTemplates();
+  const filtered = templates.filter(t => t.id !== id);
+  saveTemplates(filtered);
+}
+
+export function updateTemplateUsage(id: string): void {
+  const templates = getTemplates();
+  const index = templates.findIndex(t => t.id === id);
+  if (index !== -1) {
+    templates[index].usageCount += 1;
+    saveTemplates(templates);
+  }
+}
