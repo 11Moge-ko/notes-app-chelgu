@@ -96,7 +96,7 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
           }`}
           title={isPinned ? 'Открепить' : 'Закрепить'}
         >
-          {isPinned ? '📌' : '📍'}
+          {isPinned ? '📌' : ' '}
         </button>
         <h3 className="text-white font-medium text-lg wrap-break-word flex-1 text-right">
           {note.title || 'Без заголовка'}
