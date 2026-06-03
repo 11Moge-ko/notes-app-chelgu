@@ -70,7 +70,7 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
       {...attributes}
       {...listeners}
       className={`
-        bg-black rounded-xl p-4 
+        note-card-bg rounded-xl p-4 
         border-2
         transition-all duration-100 
         hover:-translate-y-0.5 hover:shadow-lg hover:shadow-current/20
@@ -98,8 +98,8 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
         >
           {isPinned ? '📌' : ' '}
         </button>
-        <h3 className="text-white font-medium text-lg wrap-break-word flex-1 text-right">
-          {note.title || 'Без заголовка'}
+        <h3 className="text-black font-medium text-lg wrap-break-word flex-1">
+            {note.title || 'Без заголовка'}
         </h3>
       </div>
       
