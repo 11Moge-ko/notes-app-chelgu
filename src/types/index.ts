@@ -29,7 +29,7 @@ export interface Template {
   id: string;
   name: string;
   description?: string;
-  content: string;
+  content: string | ListItem[];
   type: 'text' | 'list';
   tags?: string[];
   createdAt: number;
