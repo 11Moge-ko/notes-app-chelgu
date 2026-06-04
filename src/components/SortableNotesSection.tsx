@@ -18,14 +18,13 @@ import { NoteCard } from './NoteCard';
 import type { Note } from '../types';
 
 interface SortableNotesSectionProps {
-  title?: string;
   notes: Note[];
   onReorder: (ids: string[]) => void;
   onTogglePin: (id: string) => void;
   onEditNote: (note: Note) => void;
   onDeleteNote: (id: string) => void;
-  pinnedIds: string[];
-  unpinnedIds: string[];
+  pinnedIds?: string[];
+  unpinnedIds?: string[];
 }
 
 export function SortableNotesSection({
@@ -33,9 +32,6 @@ export function SortableNotesSection({
   onReorder,
   onTogglePin,
   onEditNote,
-  onDeleteNote,
-  pinnedIds,
-  unpinnedIds,
 }: SortableNotesSectionProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -59,6 +55,12 @@ export function SortableNotesSection({
     }
   };
 
+  const handleCardClick = (note: Note) => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) return;
+    onEditNote(note);
+  };
+
   if (notes.length === 0) {
     return (
       <div className="text-muted text-center py-8">
@@ -79,19 +81,10 @@ export function SortableNotesSection({
       >
         <div className="masonry-grid">
           {notes.map((note) => (
-            <div key={note.id} className="relative group">
-              <div onClick={() => onEditNote(note)} className="cursor-pointer">
+            <div key={note.id}>
+              <div onClick={() => handleCardClick(note)} className="cursor-pointer">
                 <NoteCard note={note} onTogglePin={onTogglePin} />
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteNote(note.id);
-                }}
-                className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
-              >
-                Удалить
-              </button>
             </div>
           ))}
         </div>

@@ -4,15 +4,32 @@ import { useNotesStore } from './store/useNotesStore';
 import { initDB } from './services/indexedDB';
 import { NoteModal } from './components/NoteModal';
 import { SortableNotesSection } from './components/SortableNotesSection';
+import { FilterBar } from './components/FilterBar';
+import { TemplateModal } from './components/TemplateModal';
+import { SaveTemplateModal } from './components/SaveTemplateModal';
+import { AddNoteMenu } from './components/AddNoteMenu';
+import { useDebounce } from './hooks/useDebounce';
 import type { Note } from './types';
 
 function App() {
-  const { notes, isLoading, loadNotes, addNote, updateNote, deleteNote, togglePin, reorderNotes } = useNotesStore();
+  const { 
+    notes, isLoading, loadNotes, addNote, updateNote, deleteNote, 
+    togglePin, reorderNotes, settings, updateSettings,
+    templates, loadTemplates, saveAsTemplate, applyTemplate, deleteTemplate
+  } = useNotesStore();
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [currentNoteForTemplate, setCurrentNoteForTemplate] = useState<Note | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   useEffect(() => {
     loadNotes();
+    loadTemplates();
     initDB().catch(console.error);
     (window as any).testNotes = { 
       addNote, 
@@ -21,9 +38,55 @@ function App() {
       togglePin,
       getNotes: () => useNotesStore.getState().notes 
     };
-  }, [loadNotes, addNote, updateNote, deleteNote, togglePin]);
+  }, [loadNotes, loadTemplates, addNote, updateNote, deleteNote, togglePin]);
 
   const allTags = Array.from(new Set(notes.flatMap(note => note.tags || [])));
+
+  const filterNotesBySearch = (notesList: Note[], query: string): Note[] => {
+    if (!query.trim()) return notesList;
+    
+    const lowerQuery = query.toLowerCase();
+    return notesList.filter(note => {
+      if (note.title?.toLowerCase().includes(lowerQuery)) return true;
+      if (note.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))) return true;
+      if (typeof note.content === 'string') {
+        if (note.content.toLowerCase().includes(lowerQuery)) return true;
+      } else if (Array.isArray(note.content)) {
+        if (note.content.some(item => item.text.toLowerCase().includes(lowerQuery))) return true;
+      }
+      return false;
+    });
+  };
+
+  const filterNotesByFilters = (notesList: Note[]): Note[] => {
+    let filtered = [...notesList];
+    
+    if (settings.filters.pinnedOnly) {
+      filtered = filtered.filter(n => n.pinned === true);
+    }
+    
+    if (settings.filters.hasImageOnly) {
+      filtered = filtered.filter(n => n.hasImage === true);
+    }
+    
+    if (settings.filters.selectedTags.length > 0) {
+      filtered = filtered.filter(n => 
+        n.tags?.some(tag => settings.filters.selectedTags.includes(tag))
+      );
+    }
+    
+    return filtered;
+  };
+
+  const sortNotes = (notesList: Note[]): Note[] => {
+    return [...notesList].sort((a, b) => {
+      if (settings.sortBy === 'createdAt') {
+        return b.createdAt - a.createdAt;
+      } else {
+        return b.updatedAt - a.updatedAt;
+      }
+    });
+  };
 
   const handleSaveNote = (noteData: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (editingNote) {
@@ -45,18 +108,28 @@ function App() {
     setIsModalOpen(true);
   };
 
-  // Сортируем: сначала закреплённые, потом обычные (без визуального разделения)
-  const sortedNotes = [...notes].sort((a, b) => {
+  const handleOpenSaveTemplateModal = () => {
+    if (editingNote) {
+      setCurrentNoteForTemplate(editingNote);
+      setIsSaveTemplateModalOpen(true);
+    } else {}
+  };
+
+  const searchedNotes = filterNotesBySearch(notes, debouncedSearchQuery);
+  const filteredByFiltersNotes = filterNotesByFilters(searchedNotes);
+  const sortedByDateNotes = sortNotes(filteredByFiltersNotes);
+
+  const finalNotes = [...sortedByDateNotes].sort((a, b) => {
     if (a.pinned === b.pinned) return 0;
     return a.pinned ? -1 : 1;
   });
 
-  const pinnedIds = sortedNotes.filter(n => n.pinned).map(n => n.id);
-  const unpinnedIds = sortedNotes.filter(n => !n.pinned).map(n => n.id);
-
   const handleReorder = (ids: string[]) => {
     reorderNotes(ids);
   };
+
+  const showNoResults = searchQuery.trim() !== '' && filteredByFiltersNotes.length === 0;
+  const showNoFiltersResults = !showNoResults && finalNotes.length === 0 && notes.length > 0;
 
   if (isLoading) {
     return (
@@ -69,52 +142,110 @@ function App() {
   return (
     <div className="min-h-screen p-6" style={{ background: 'var(--bg-app)' }}>
       <div className="max-w-7xl mx-auto">
-        {/* Только заголовок, без счётчика и лишних кнопок */}
         <h1 className="text-primary text-3xl font-bold mb-6">Notes App</h1>
+        
+        <div className="mb-4 flex gap-3">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Поиск по заметкам..."
+              className="w-full bg-gray-900 text-white px-4 py-3 pl-10 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
+            />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg">🔍</span>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-lg"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          
+          <button
+            onClick={() => setIsTemplateModalOpen(true)}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+          >
+            📋 Шаблоны
+          </button>
+        </div>
+        
+        <FilterBar settings={settings} onSettingsChange={updateSettings} allTags={allTags} />
         
         {notes.length === 0 ? (
           <div className="text-center text-muted py-12">
             <p>Нет заметок</p>
             <p className="text-sm mt-2">Нажмите кнопку +, чтобы создать первую</p>
           </div>
+        ) : showNoResults ? (
+          <div className="text-center text-muted py-12">
+            <p>🔍 Ничего не найдено</p>
+            <p className="text-sm mt-2">Попробуйте изменить запрос</p>
+          </div>
+        ) : showNoFiltersResults ? (
+          <div className="text-center text-muted py-12">
+            <p>🔍 Нет заметок, соответствующих фильтрам</p>
+          </div>
         ) : (
           <SortableNotesSection
-            title=""
-            notes={sortedNotes}
+            notes={finalNotes}
             onReorder={handleReorder}
             onTogglePin={togglePin}
             onEditNote={handleEditNote}
             onDeleteNote={deleteNote}
-            pinnedIds={pinnedIds}
-            unpinnedIds={unpinnedIds}
           />
         )}
       </div>
 
-      {/* Кнопка "+" в правом нижнем углу */}
-      <button
-        onClick={handleNewNote}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white text-3xl font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center z-20"
-        title="Новая заметка"
-      >
-        +
-      </button>
+      <AddNoteMenu
+        onNewNote={handleNewNote}
+        onFromTemplate={() => setIsTemplateModalOpen(true)}
+      />
 
       <NoteModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingNote(null);
-        }}
+        onClose={() => { setIsModalOpen(false); setEditingNote(null); }}
         onSave={handleSaveNote}
+        onDelete={deleteNote}
         initialNote={editingNote}
         allTags={allTags}
+        onSaveAsTemplate={handleOpenSaveTemplateModal}
+        isTemplateLimitReached={templates.length >= 20}
+      />
+
+      <TemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => setIsTemplateModalOpen(false)}
+        onSelectTemplate={(template) => {
+          const noteData = applyTemplate(template);
+          addNote(noteData);
+          setIsTemplateModalOpen(false);
+        }}
+        templates={templates}
+        onDeleteTemplate={deleteTemplate}
+      />
+
+      <SaveTemplateModal
+        isOpen={isSaveTemplateModalOpen}
+        onClose={() => {
+          setIsSaveTemplateModalOpen(false);
+          setCurrentNoteForTemplate(null);
+        }}
+        onSave={(name, description) => {
+          if (currentNoteForTemplate) {
+            saveAsTemplate(name, description, currentNoteForTemplate);
+          }
+          setIsSaveTemplateModalOpen(false);
+          setCurrentNoteForTemplate(null);
+        }}
       />
 
       <style>{`
         .masonry-grid {
           column-count: 2;
-          column-gap: 16px;
+          column-gap: 20px;
         }
         @media (min-width: 768px) {
           .masonry-grid { column-count: 3; }
@@ -127,7 +258,7 @@ function App() {
         }
         .masonry-grid > * {
           break-inside: avoid;
-          margin-bottom: 16px;
+          margin-bottom: 24px;
         }
       `}</style>
     </div>
