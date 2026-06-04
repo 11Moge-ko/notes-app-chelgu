@@ -137,14 +137,11 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
 
   saveAsTemplate: (name: string, description: string, note: Note) => {
     try {
-      // @ts-ignore - JSON.stringify работает с любым типом
-      const contentString = JSON.stringify(note.content);
-      
       const newTemplate: Template = {
         id: generateId(),
         name,
         description,
-        content: contentString,
+        content: note.content,
         type: note.type === 'photo' ? 'text' : note.type,
         tags: note.tags,
         createdAt: now(),
@@ -153,10 +150,9 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       
       addTemplate(newTemplate);
       set(state => ({ templates: [newTemplate, ...state.templates] }));
-      console.log('✅ Шаблон сохранён:', newTemplate.name);
       return true;
     } catch (error) {
-      console.error('❌ Ошибка сохранения шаблона:', error);
+      console.error('Ошибка сохранения шаблона:', error);
       return false;
     }
   },
@@ -170,36 +166,14 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       )
     }));
     
-    if (template.type === 'list') {
-      let listItems: ListItem[] = [];
-      try {
-        // @ts-ignore - JSON.parse работает с любой строкой
-        const parsed = JSON.parse(template.content);
-        if (Array.isArray(parsed)) {
-          listItems = parsed as ListItem[];
-        }
-      } catch {
-        // Если не удалось распарсить, оставляем пустой массив
-      }
-      
-      return {
-        title: template.name,
-        content: listItems,
-        type: template.type,
-        borderColor: '#bc57ca',
-        pinned: false,
-        tags: template.tags || [],
-      };
-    } else {
-      return {
-        title: template.name,
-        content: template.content,
-        type: template.type,
-        borderColor: '#bc57ca',
-        pinned: false,
-        tags: template.tags || [],
-      };
-    }
+    return {
+      title: '',
+      content: template.content,
+      type: template.type,
+      borderColor: '#bc57ca',
+      pinned: false,
+      tags: template.tags || [],
+    };
   },
 
   deleteTemplate: (id: string) => {

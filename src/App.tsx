@@ -7,6 +7,7 @@ import { SortableNotesSection } from './components/SortableNotesSection';
 import { FilterBar } from './components/FilterBar';
 import { TemplateModal } from './components/TemplateModal';
 import { SaveTemplateModal } from './components/SaveTemplateModal';
+import { AddNoteMenu } from './components/AddNoteMenu';
 import { useDebounce } from './hooks/useDebounce';
 import type { Note } from './types';
 
@@ -198,21 +199,16 @@ function App() {
         )}
       </div>
 
-      <button
-        onClick={handleNewNote}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 text-white text-3xl font-bold rounded-full shadow-lg transition-all hover:scale-110 flex items-center justify-center z-20"
-        title="Новая заметка"
-      >
-        +
-      </button>
+      <AddNoteMenu
+        onNewNote={handleNewNote}
+        onFromTemplate={() => setIsTemplateModalOpen(true)}
+      />
 
       <NoteModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingNote(null);
-        }}
+        onClose={() => { setIsModalOpen(false); setEditingNote(null); }}
         onSave={handleSaveNote}
+        onDelete={deleteNote}
         initialNote={editingNote}
         allTags={allTags}
         onSaveAsTemplate={handleOpenSaveTemplateModal}

@@ -9,6 +9,7 @@ interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onDelete?: (id: string) => void;
   initialNote?: Note | null;
   allTags?: string[];
   onSaveAsTemplate?: () => void;
@@ -18,13 +19,8 @@ interface NoteModalProps {
 const DRAFT_KEY = 'draft_v1';
 
 export function NoteModal({ 
-  isOpen, 
-  onClose, 
-  onSave, 
-  initialNote, 
-  allTags = [],
-  onSaveAsTemplate,
-  isTemplateLimitReached = false
+  isOpen, onClose, onSave, initialNote, allTags = [],
+  onSaveAsTemplate, isTemplateLimitReached = false, onDelete
 }: NoteModalProps) {
   const [title, setTitle] = useState('');
   const [type, setType] = useState<NoteType>('text');
@@ -34,6 +30,7 @@ export function NoteModal({
   const [pinned, setPinned] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -101,6 +98,14 @@ export function NoteModal({
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     onClose();
   }, [title, type, borderColor, pinned, tags, textContent, listItems, onClose]);
+
+  const handleDelete = () => {
+    if (!initialNote) return;
+    onDelete(initialNote.id);
+    localStorage.removeItem(DRAFT_KEY);
+    resetForm();
+    onClose();
+  };
 
   const handleSave = () => {
     let isValid = false;
@@ -262,22 +267,20 @@ export function NoteModal({
           </div>
           
           <div className="flex gap-3 pt-4 border-t border-gray-800">
+            {initialNote && onDelete && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-4 py-2 bg-red-600/20 text-red-400 border border-red-600/50 rounded-lg hover:bg-red-600/30 transition-colors"
+              >
+                Удалить
+              </button>
+            )}
             <button
               onClick={handleClose}
               className="flex-1 px-4 py-2 bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors"
             >
               Отмена
             </button>
-            
-            {onSaveAsTemplate && !isTemplateLimitReached && hasContent && (
-              <button
-                onClick={onSaveAsTemplate}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                📋 Сохранить как шаблон
-              </button>
-            )}
-            
             <button
               onClick={handleSave}
               className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
@@ -285,7 +288,28 @@ export function NoteModal({
               Сохранить
             </button>
           </div>
-          
+
+          {onSaveAsTemplate && (
+            <button
+              onClick={onSaveAsTemplate}
+              disabled={!hasContent || isTemplateLimitReached}
+              className={`w-full mt-3 px-4 py-2 rounded-lg transition-colors ${
+                hasContent && !isTemplateLimitReached
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+              }`}
+              title={
+                !hasContent 
+                  ? 'Заполните содержание заметки' 
+                  : isTemplateLimitReached 
+                    ? 'Достигнут лимит шаблонов (20)' 
+                    : ''
+              }
+            >
+              📋 Сохранить как шаблон
+            </button>
+          )}
+
           {isTemplateLimitReached && (
             <div className="text-yellow-500 text-sm text-center">
               Достигнут лимит шаблонов (20). Удалите неиспользуемый
@@ -293,6 +317,34 @@ export function NoteModal({
           )}
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90"
+          onClick={(e) => e.target === e.currentTarget && setShowDeleteConfirm(false)}
+        >
+          <div className="bg-black rounded-xl w-full max-w-md border-2 border-red-600 p-6">
+            <h3 className="text-white text-lg font-semibold mb-3">Удалить заметку?</h3>
+            <p className="text-gray-400 text-sm mb-5">
+              Вы уверены? Вернуть заметку будет нельзя.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Нет
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Да, удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

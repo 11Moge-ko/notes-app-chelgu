@@ -51,7 +51,6 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
   const handlePinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    console.log('📌 Клик, заметка:', note.id, 'текущий pinned:', note.pinned);
     onTogglePin?.(note.id);
   };
 
@@ -85,25 +84,21 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
         e.currentTarget.style.boxShadow = 'none';
       }}
     >
-      {/* Заголовок и кнопка закрепления в одной строке */}
       <div className="flex justify-between items-start gap-2 mb-2">
-        <button
-          onClick={handlePinClick}
-          className={`text-base shrink-0 transition-all duration-200 mb-2 ${
-            isPinned 
-              ? 'text-yellow-400 scale-110' 
-              : 'text-gray-500 hover:text-yellow-400 hover:scale-110'
-          }`}
-          title={isPinned ? 'Открепить' : 'Закрепить'}
-        >
-          {isPinned ? '📌' : ' '}
-        </button>
-        <h3 className="text-white font-medium text-lg wrap-break-word flex-1 text-right">
+        <h3 className="text-white font-medium text-lg break-words overflow-hidden flex-1 min-w-0">
           {note.title || 'Без заголовка'}
         </h3>
+        {isPinned && (
+          <button
+            onClick={handlePinClick}
+            className="text-base shrink-0 text-yellow-400 scale-110 transition-all duration-200 hover:scale-125"
+            title="Открепить"
+          >
+            📌
+          </button>
+        )}
       </div>
       
-      {/* Теги */}
       {note.tags && note.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
           {note.tags.slice(0, 3).map((tag) => (
@@ -117,26 +112,22 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
         </div>
       )}
       
-      {/* Превью контента */}
-      <div className="text-secondary text-sm whitespace-pre-line wrap-break-word">
+      <div className="text-secondary text-sm whitespace-pre-line break-words overflow-hidden max-h-40">
         {preview || <span className="text-muted">Нет содержания</span>}
       </div>
       
-      {/* Статистика для списка */}
       {listStats && (
         <div className="text-muted text-xs mt-3 pt-2 border-t border-gray-800">
           ✓ {listStats.completed} / {listStats.total} выполнено
         </div>
       )}
 
-      {/* Плейсхолдер для фото */}
       {note.type === 'photo' && !note.hasImage && (
         <div className="text-muted text-xs mt-3 pt-2 border-t border-gray-800">
           🖼️ Без фото
         </div>
       )}
       
-      {/* Индикатор типа заметки */}
       <div className="text-muted text-xs mt-2 opacity-50">
         {note.type === 'list' && '📋'}
         {note.type === 'text' && '📝'}
