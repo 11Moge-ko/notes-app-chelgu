@@ -1,5 +1,5 @@
 // components/NoteCard.tsx
-import type { Note, ListItem } from '../types';
+import type { Note, ListItem } from '../../types';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 

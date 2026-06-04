@@ -14,7 +14,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { NoteCard } from './NoteCard';
+import { NoteCard } from './NoteCard/NoteCard';
 import type { Note } from '../types';
 
 interface SortableNotesSectionProps {

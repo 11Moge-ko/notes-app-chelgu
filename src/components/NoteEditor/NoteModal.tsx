@@ -1,9 +1,9 @@
 // components/NoteModal.tsx
 import { useState, useEffect, useCallback } from 'react';
-import type { Note, ListItem, BorderColor, NoteType } from '../types';
-import { generateId } from '../utils/helpers';
-import { TagInput } from './TagInput';
-import { ColorPicker } from './ColorPicker';
+import type { Note, ListItem, BorderColor, NoteType } from '../../types';
+import { generateId } from '../../utils/helpers';
+import { TagInput } from '../ui/TagInput';
+import { ColorPicker } from '../ui/ColorPicker';
 
 interface NoteModalProps {
   isOpen: boolean;

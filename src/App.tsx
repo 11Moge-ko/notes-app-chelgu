@@ -2,12 +2,12 @@
 import { useEffect, useState } from 'react';
 import { useNotesStore } from './store/useNotesStore';
 import { initDB } from './services/indexedDB';
-import { NoteModal } from './components/NoteModal';
+import { NoteModal } from './components/NoteEditor/NoteModal';
 import { SortableNotesSection } from './components/SortableNotesSection';
-import { FilterBar } from './components/FilterBar';
-import { TemplateModal } from './components/TemplateModal';
-import { SaveTemplateModal } from './components/SaveTemplateModal';
-import { AddNoteMenu } from './components/AddNoteMenu';
+import { FilterBar } from './components/ui/FilterBar';
+import { TemplateModal } from './components/TemplateModal/TemplateModal';
+import { SaveTemplateModal } from './components/TemplateModal/SaveTemplateModal';
+import { AddNoteMenu } from './components/FloatingActionButton/AddNoteMenu';
 import { useDebounce } from './hooks/useDebounce';
 import type { Note } from './types';
 
