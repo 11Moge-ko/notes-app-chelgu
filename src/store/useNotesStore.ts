@@ -1,4 +1,3 @@
-// store/useNotesStore.ts
 import { create } from 'zustand';
 import type { Note, Settings, Template } from '../types';
 import { 

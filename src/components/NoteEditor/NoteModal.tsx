@@ -1,4 +1,3 @@
-// components/NoteEditor/NoteModal.tsx
 import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
 import type { Note, ListItem, BorderColor, NoteType } from '../../types';
 import { generateId } from '../../utils/helpers';
@@ -491,13 +490,6 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
                   ? 'bg-green-600 text-white hover:bg-green-700'
                   : 'bg-gray-800 text-gray-600 cursor-not-allowed'
               }`}
-              title={
-                !hasContent 
-                  ? 'Заполните содержание заметки' 
-                  : isTemplateLimitReached 
-                    ? 'Достигнут лимит шаблонов (20)' 
-                    : 'Сохранить текущую заметку как шаблон'
-              }
             >
               📋 Сохранить как шаблон
             </button>

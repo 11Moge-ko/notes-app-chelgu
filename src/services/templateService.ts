@@ -1,4 +1,3 @@
-// services/templateService.ts
 import type { Note, Template, ListItem, BorderColor } from '../types';
 import { generateId, now } from '../utils/helpers';
 

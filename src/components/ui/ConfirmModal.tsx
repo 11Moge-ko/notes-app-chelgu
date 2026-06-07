@@ -1,4 +1,3 @@
-// components/ui/ConfirmModal.tsx
 interface ConfirmModalProps {
   isOpen: boolean;
   title: string;

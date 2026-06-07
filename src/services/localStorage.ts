@@ -1,11 +1,9 @@
-// services/localStorage.ts
-import type { Note, Settings, Template, } from '../types';
+import type { Note, Settings, Template } from '../types';
 
 const NOTES_KEY = 'notes_v1';
 const TEMPLATES_KEY = 'templates_v1';
 const SETTINGS_KEY = 'settings_v1';
 
-// ========== ПРОВЕРКА ОШИБОК ==========
 export function isQuotaExceededError(error: unknown): boolean {
   return error instanceof DOMException && 
     (error.name === 'QuotaExceededError' || error.code === 22);
@@ -23,7 +21,6 @@ export function safeSaveNotes(notes: Note[]): { success: boolean; error?: Error 
   }
 }
 
-// ========== ЗАМЕТКИ ==========
 export function getNotes(): Note[] {
   const data = localStorage.getItem(NOTES_KEY);
   if (!data) return [];
@@ -60,7 +57,6 @@ export function deleteNote(id: string): void {
   saveNotes(filtered);
 }
 
-// ========== ШАБЛОНЫ ==========
 export function getTemplates(): Template[] {
   const data = localStorage.getItem(TEMPLATES_KEY);
   if (!data) return [];
@@ -99,7 +95,6 @@ export function updateTemplateUsage(id: string): void {
   }
 }
 
-// ========== НАСТРОЙКИ ==========
 export function getSettings(): Settings {
   const defaults: Settings = {
     theme: 'dark',

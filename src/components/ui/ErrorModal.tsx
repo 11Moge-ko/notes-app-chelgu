@@ -1,4 +1,3 @@
-// components/ui/ErrorModal.tsx
 interface ErrorModalProps {
   isOpen: boolean;
   onClose: () => void;

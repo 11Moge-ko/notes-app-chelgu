@@ -1,4 +1,3 @@
-// components/ui/PhotoCleanupModal.tsx
 import { useState, useEffect } from 'react';
 import { getNoteImage, deleteNoteImage, clearAllImages } from '../../services/indexedDB';
 import { useNotesStore } from '../../store/useNotesStore';

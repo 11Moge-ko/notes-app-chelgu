@@ -1,4 +1,3 @@
-// components/ui/FilterBar.tsx
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import type { Settings } from '../../types';
 

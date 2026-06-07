@@ -1,4 +1,3 @@
-// types/index.ts
 export type BorderColor = '#bc57ca' | '#ff3856' | '#38b6ff' | '#57ca8e';
 export type NoteType = 'text' | 'list' | 'photo';
 
@@ -28,7 +27,7 @@ export interface Note {
 export interface Template {
   id: string;
   name: string;
-  title: string;           // ← ДОБАВЛЕНО — оригинальный заголовок заметки
+  title: string;
   description?: string;
   content: string | ListItem[];
   type: 'text' | 'list';

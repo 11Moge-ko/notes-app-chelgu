@@ -1,4 +1,3 @@
-// App.tsx
 import { useEffect, useState, useRef } from 'react';
 import { useNotesStore } from './store/useNotesStore';
 import { initDB } from './services/indexedDB';

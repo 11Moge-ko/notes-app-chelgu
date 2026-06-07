@@ -1,4 +1,3 @@
-// store/useTemplateStore.ts
 import { create } from 'zustand';
 import type { Note, Template } from '../types';
 import * as templateService from '../services/templateService';

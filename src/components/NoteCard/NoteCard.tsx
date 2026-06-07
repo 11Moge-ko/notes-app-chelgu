@@ -1,4 +1,3 @@
-// components/NoteCard/NoteCard.tsx
 import { useState, useEffect } from 'react';
 import type { Note, ListItem } from '../../types';
 import { useSortable } from '@dnd-kit/sortable';

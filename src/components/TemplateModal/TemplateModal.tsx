@@ -1,4 +1,3 @@
-// components/TemplateModal.tsx
 import { useState, useEffect } from 'react';
 import type { Template } from '../../types';
 
@@ -36,7 +35,6 @@ export function TemplateModal({ isOpen, onClose, onSelectTemplate, templates, on
         </div>
         
         <div className="p-4 space-y-4">
-          {/* Поиск */}
           <div className="relative">
             <input
               type="text"
@@ -48,7 +46,6 @@ export function TemplateModal({ isOpen, onClose, onSelectTemplate, templates, on
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔍</span>
           </div>
           
-          {/* Список шаблонов */}
           {filteredTemplates.length === 0 ? (
             <div className="text-center text-gray-400 py-8">
               <p>Нет сохранённых шаблонов</p>
@@ -89,7 +86,6 @@ export function TemplateModal({ isOpen, onClose, onSelectTemplate, templates, on
             </div>
           )}
           
-          {/* Кнопки */}
           <div className="flex gap-3 pt-4 border-t border-gray-800">
             <button
               onClick={onClose}

@@ -1,4 +1,3 @@
-// components/SortableNotesSection.tsx
 import {
   DndContext,
   closestCenter,
@@ -23,8 +22,6 @@ interface SortableNotesSectionProps {
   onTogglePin: (id: string) => void;
   onEditNote: (note: Note) => void;
   onDeleteNote: (id: string) => void;
-  pinnedIds?: string[];
-  unpinnedIds?: string[];
 }
 
 export function SortableNotesSection({

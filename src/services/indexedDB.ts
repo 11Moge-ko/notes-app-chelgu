@@ -1,4 +1,3 @@
-// services/indexedDB.ts
 import { openDB } from 'idb';
 import type { DBSchema } from 'idb';
 

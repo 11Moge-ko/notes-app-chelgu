@@ -1,4 +1,3 @@
-// components/ui/ColorPicker.tsx
 import type { BorderColor } from '../../types';
 
 interface ColorPickerProps {
