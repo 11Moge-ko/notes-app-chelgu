@@ -137,12 +137,30 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
 
   saveAsTemplate: (name: string, description: string, note: Note) => {
     try {
+      // Нормализуем content: если это массив — оставляем как массив, если строка — пробуем распарсить
+      let normalizedContent: string | ListItem[] = note.content;
+      
+      // Если content — строка, проверяем, не является ли она JSON-строкой от массива
+      if (typeof note.content === 'string') {
+        try {
+          const parsed = JSON.parse(note.content);
+          if (Array.isArray(parsed)) {
+            // Это JSON-строка массива — восстанавливаем массив
+            normalizedContent = parsed as ListItem[];
+          }
+        } catch {
+          // Не парсится — оставляем как строку
+          normalizedContent = note.content;
+        }
+      }
+      
       const newTemplate: Template = {
         id: generateId(),
         name,
         description,
-        content: note.content,
+        content: normalizedContent,
         type: note.type === 'photo' ? 'text' : note.type,
+        borderColor: note.borderColor,
         tags: note.tags,
         createdAt: now(),
         usageCount: 0,
@@ -166,11 +184,27 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       )
     }));
     
+    // Нормализуем content для заметки
+    let noteContent: string | ListItem[] = template.content;
+    
+    // Если content — строка, пробуем распарсить как JSON-массив
+    if (typeof template.content === 'string') {
+      try {
+        const parsed = JSON.parse(template.content);
+        if (Array.isArray(parsed)) {
+          noteContent = parsed as ListItem[];
+        }
+      } catch {
+        // Не парсится — оставляем как строку
+        noteContent = template.content;
+      }
+    }
+    
     return {
       title: '',
-      content: template.content,
+      content: noteContent,
       type: template.type,
-      borderColor: '#bc57ca',
+      borderColor: template.borderColor,
       pinned: false,
       tags: template.tags || [],
     };

@@ -1,4 +1,5 @@
-import type { Note, Template, ListItem } from '../types';
+// services/templateService.ts
+import type { Note, Template, ListItem, BorderColor } from '../types';
 import { generateId, now } from '../utils/helpers';
 
 const STORAGE_KEY = 'templates_v1';
@@ -9,6 +10,7 @@ export interface TemplateInput {
   description?: string;
   content: string | ListItem[];
   type: 'text' | 'list';
+  borderColor: BorderColor;
   tags?: string[];
 }
 
@@ -39,6 +41,50 @@ export function isLimitReached(): boolean {
   return getAll().length >= MAX_TEMPLATES;
 }
 
+// Нормализация content для сохранения
+function normalizeContentForSave(content: string | ListItem[]): string | ListItem[] {
+  // Если это массив — оставляем как массив
+  if (Array.isArray(content)) {
+    return content;
+  }
+  
+  // Если это строка — пробуем распарсить как JSON-массив
+  if (typeof content === 'string') {
+    try {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        return parsed as ListItem[];
+      }
+    } catch {
+      // Не парсится — оставляем как строку
+    }
+  }
+  
+  return content;
+}
+
+// Нормализация content для применения
+function normalizeContentForApply(content: string | ListItem[]): string | ListItem[] {
+  // Если это массив — оставляем как массив
+  if (Array.isArray(content)) {
+    return content;
+  }
+  
+  // Если это строка — пробуем распарсить как JSON-массив
+  if (typeof content === 'string') {
+    try {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        return parsed as ListItem[];
+      }
+    } catch {
+      // Не парсится — оставляем как строку
+    }
+  }
+  
+  return content;
+}
+
 export function saveTemplate(input: TemplateInput): Template {
   const templates = getAll();
 
@@ -54,8 +100,9 @@ export function saveTemplate(input: TemplateInput): Template {
     id: generateId(),
     name,
     description: input.description?.trim() || undefined,
-    content: input.content,
+    content: normalizeContentForSave(input.content),
     type: input.type,
+    borderColor: input.borderColor,
     tags: input.tags?.filter(Boolean) || [],
     createdAt: now(),
     usageCount: 0,
@@ -67,7 +114,7 @@ export function saveTemplate(input: TemplateInput): Template {
 }
 
 export function saveTemplateFromNote(
-  note: Pick<Note, 'content' | 'type' | 'tags'>,
+  note: Pick<Note, 'content' | 'type' | 'tags' | 'borderColor'>,
   name: string,
   description?: string
 ): Template {
@@ -79,6 +126,7 @@ export function saveTemplateFromNote(
     description,
     content: note.content,
     type: note.type,
+    borderColor: note.borderColor,
     tags: note.tags,
   });
 }
@@ -96,9 +144,9 @@ export function applyTemplate(
   const t = templates[idx];
   return {
     title: '',
-    content: t.content,
+    content: normalizeContentForApply(t.content),
     type: t.type,
-    borderColor: '#bc57ca',
+    borderColor: t.borderColor,
     pinned: false,
     tags: [...(t.tags || [])],
     templateId: t.id,

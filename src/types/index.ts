@@ -31,6 +31,7 @@ export interface Template {
   description?: string;
   content: string | ListItem[];
   type: 'text' | 'list';
+  borderColor: BorderColor;  // ← ДОБАВЛЕНО
   tags?: string[];
   createdAt: number;
   usageCount: number;

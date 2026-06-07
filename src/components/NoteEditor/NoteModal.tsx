@@ -1,4 +1,4 @@
-// components/NoteModal.tsx
+// components/NoteEditor/NoteModal.tsx
 import { useState, useEffect, useCallback } from 'react';
 import type { Note, ListItem, BorderColor, NoteType } from '../../types';
 import { generateId } from '../../utils/helpers';
@@ -32,9 +32,28 @@ export function NoteModal({
   const [error, setError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Полный сброс формы в пустое состояние
+  const resetForm = () => {
+    setTitle('');
+    setType('text');
+    setTextContent('');
+    setListItems([]);
+    setBorderColor('#bc57ca');
+    setPinned(false);
+    setTags([]);
+    setError('');
+  };
+
+  // Очистка черновика
+  const clearDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
+  };
+
+  // Загрузка данных при открытии модального окна
   useEffect(() => {
     if (isOpen) {
       if (initialNote) {
+        // Редактирование существующей заметки — загружаем её данные
         setTitle(initialNote.title || '');
         setType(initialNote.type);
         setBorderColor(initialNote.borderColor);
@@ -50,29 +69,24 @@ export function NoteModal({
         }
         setError('');
       } else {
-        const draft = localStorage.getItem(DRAFT_KEY);
-        if (draft) {
-          try {
-            const draftData = JSON.parse(draft);
-            setTitle(draftData.title || '');
-            setType(draftData.type || 'text');
-            setBorderColor(draftData.borderColor || '#bc57ca');
-            setPinned(draftData.pinned || false);
-            setTags(draftData.tags || []);
-            setTextContent(draftData.textContent || '');
-            setListItems(draftData.listItems || []);
-          } catch {
-            resetForm();
-          }
-        } else {
-          resetForm();
-        }
+        // Создание новой заметки — НЕ загружаем черновик, всегда чистая форма
+        resetForm();
+        clearDraft(); // Очищаем старый черновик при создании новой заметки
       }
     }
   }, [isOpen, initialNote]);
 
+  // Автосохранение черновика (только при редактировании существующей заметки)
   useEffect(() => {
-    if (!isOpen) return;
+    // Сохраняем черновик только если редактируем существующую заметку И есть контент
+    if (!isOpen || !initialNote) return;
+    
+    const hasContent = title.trim() || 
+                       textContent.trim() || 
+                       listItems.length > 0 ||
+                       tags.length > 0;
+    
+    if (!hasContent) return;
     
     const draft = { title, type, borderColor, pinned, tags, textContent, listItems };
     const interval = setInterval(() => {
@@ -80,29 +94,28 @@ export function NoteModal({
     }, 30000);
     
     return () => clearInterval(interval);
-  }, [isOpen, title, type, borderColor, pinned, tags, textContent, listItems]);
-
-  const resetForm = () => {
-    setTitle('');
-    setType('text');
-    setTextContent('');
-    setListItems([]);
-    setBorderColor('#bc57ca');
-    setPinned(false);
-    setTags([]);
-    setError('');
-  };
+  }, [isOpen, initialNote, title, type, borderColor, pinned, tags, textContent, listItems]);
 
   const handleClose = useCallback(() => {
-    const draft = { title, type, borderColor, pinned, tags, textContent, listItems };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    // При закрытии редактора существующей заметки сохраняем черновик
+    if (initialNote) {
+      const hasContent = title.trim() || 
+                         textContent.trim() || 
+                         listItems.length > 0 ||
+                         tags.length > 0;
+      
+      if (hasContent) {
+        const draft = { title, type, borderColor, pinned, tags, textContent, listItems };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      }
+    }
     onClose();
-  }, [title, type, borderColor, pinned, tags, textContent, listItems, onClose]);
+  }, [initialNote, title, type, borderColor, pinned, tags, textContent, listItems, onClose]);
 
   const handleDelete = () => {
     if (!initialNote) return;
-    onDelete(initialNote.id);
-    localStorage.removeItem(DRAFT_KEY);
+    onDelete?.(initialNote.id);
+    clearDraft();
     resetForm();
     onClose();
   };
@@ -130,7 +143,7 @@ export function NoteModal({
     }
     
     onSave({ title: title.trim(), content, type, borderColor, pinned, tags });
-    localStorage.removeItem(DRAFT_KEY);
+    clearDraft();
     resetForm();
     onClose();
   };
@@ -320,7 +333,7 @@ export function NoteModal({
 
       {showDeleteConfirm && (
         <div 
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90"
           onClick={(e) => e.target === e.currentTarget && setShowDeleteConfirm(false)}
         >
           <div className="bg-black rounded-xl w-full max-w-md border-2 border-red-600 p-6">
