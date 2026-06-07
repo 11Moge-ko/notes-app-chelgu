@@ -1,9 +1,10 @@
 // components/NoteEditor/NoteModal.tsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import type { Note, ListItem, BorderColor, NoteType } from '../../types';
 import { generateId } from '../../utils/helpers';
 import { TagInput } from '../ui/TagInput';
 import { ColorPicker } from '../ui/ColorPicker';
+import { getNoteImage, saveNoteImage, deleteNoteImage } from '../../services/indexedDB';
 
 interface NoteModalProps {
   isOpen: boolean;
@@ -12,16 +13,17 @@ interface NoteModalProps {
   onDelete?: (id: string) => void;
   initialNote?: Note | null;
   allTags?: string[];
+  onImageSaved?: (noteId: string, base64: string) => void;
   onSaveAsTemplate?: () => void;
   isTemplateLimitReached?: boolean;
 }
 
 const DRAFT_KEY = 'draft_v1';
 
-export function NoteModal({ 
+export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({ 
   isOpen, onClose, onSave, initialNote, allTags = [],
-  onSaveAsTemplate, isTemplateLimitReached = false, onDelete
-}: NoteModalProps) {
+  onDelete, onImageSaved, onSaveAsTemplate, isTemplateLimitReached = false
+}, ref) => {
   const [title, setTitle] = useState('');
   const [type, setType] = useState<NoteType>('text');
   const [textContent, setTextContent] = useState('');
@@ -31,8 +33,12 @@ export function NoteModal({
   const [tags, setTags] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isImageLoading, setIsImageLoading] = useState(false);
+  const [savedImageId, setSavedImageId] = useState<string | null>(null);
 
-  // Полный сброс формы в пустое состояние
   const resetForm = () => {
     setTitle('');
     setType('text');
@@ -42,47 +48,40 @@ export function NoteModal({
     setPinned(false);
     setTags([]);
     setError('');
+    setSelectedImage(null);
+    setImagePreview(null);
+    setSavedImageId(null);
   };
 
-  // Очистка черновика
   const clearDraft = () => {
     localStorage.removeItem(DRAFT_KEY);
   };
 
-  // Преобразование текста в элемент списка
   const convertTextToListItems = (text: string): ListItem[] => {
     if (!text.trim()) return [];
-    
-    // Разбиваем текст по строкам
     const lines = text.split('\n');
-    return lines.map((line, index) => ({
+    return lines.map((line) => ({
       id: generateId(),
       text: line,
       isChecked: false,
     }));
   };
 
-  // Преобразование списка в текст
   const convertListItemsToText = (items: ListItem[]): string => {
     return items.map(item => item.text).join('\n');
   };
 
-  // Обработчик переключения типа заметки
   const handleTypeChange = (newType: NoteType) => {
     if (newType === type) return;
     
     if (newType === 'list' && type === 'text') {
-      // Текст → Список: преобразуем текст в элементы списка
       if (textContent.trim()) {
-        const newListItems = convertTextToListItems(textContent);
-        setListItems(newListItems);
+        setListItems(convertTextToListItems(textContent));
         setTextContent('');
       }
     } else if (newType === 'text' && type === 'list') {
-      // Список → Текст: преобразуем список в текст
       if (listItems.length > 0) {
-        const newTextContent = convertListItemsToText(listItems);
-        setTextContent(newTextContent);
+        setTextContent(convertListItemsToText(listItems));
         setListItems([]);
       }
     }
@@ -90,11 +89,45 @@ export function NoteModal({
     setType(newType);
   };
 
-  // Загрузка данных при открытии модального окна
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImagePreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    // Если есть сохранённое фото, удаляем его из IndexedDB
+    if (savedImageId) {
+      deleteNoteImage(savedImageId);
+      setSavedImageId(null);
+    }
+  };
+
+  // Загрузка существующего фото при открытии
+  useEffect(() => {
+    if (isOpen && initialNote && initialNote.type === 'photo' && initialNote.hasImage) {
+      setIsImageLoading(true);
+      getNoteImage(initialNote.id).then(base64 => {
+        if (base64) {
+          setImagePreview(base64);
+          setSavedImageId(initialNote.id);
+        }
+        setIsImageLoading(false);
+      });
+    }
+  }, [isOpen, initialNote]);
+
   useEffect(() => {
     if (isOpen) {
       if (initialNote) {
-        // Редактирование существующей заметки — загружаем её данные
         setTitle(initialNote.title || '');
         setType(initialNote.type);
         setBorderColor(initialNote.borderColor);
@@ -104,20 +137,21 @@ export function NoteModal({
         if (initialNote.type === 'list' && Array.isArray(initialNote.content)) {
           setListItems(initialNote.content);
           setTextContent('');
+        } else if (initialNote.type === 'photo') {
+          setTextContent(typeof initialNote.content === 'string' ? initialNote.content : '');
+          setListItems([]);
         } else {
           setTextContent(typeof initialNote.content === 'string' ? initialNote.content : '');
           setListItems([]);
         }
         setError('');
       } else {
-        // Создание новой заметки — всегда чистая форма
         resetForm();
         clearDraft();
       }
     }
   }, [isOpen, initialNote]);
 
-  // Автосохранение черновика (только при редактировании существующей заметки)
   useEffect(() => {
     if (!isOpen || !initialNote) return;
     
@@ -153,13 +187,17 @@ export function NoteModal({
 
   const handleDelete = () => {
     if (!initialNote) return;
+    if (initialNote.type === 'photo' && initialNote.hasImage) {
+      deleteNoteImage(initialNote.id);
+    }
     onDelete?.(initialNote.id);
     clearDraft();
     resetForm();
+    setShowDeleteConfirm(false);
     onClose();
   };
 
-  const handleSave = () => {
+  const handleSave = useCallback(async () => {
     let isValid = false;
     let content: string | ListItem[] = '';
     
@@ -174,6 +212,11 @@ export function NoteModal({
         isValid = true;
         content = listItems;
       }
+    } else if (type === 'photo') {
+      if (textContent.trim().length >= 1 || imagePreview) {
+        isValid = true;
+        content = textContent;
+      }
     }
     
     if (!isValid) {
@@ -181,11 +224,46 @@ export function NoteModal({
       return;
     }
     
-    onSave({ title: title.trim(), content, type, borderColor, pinned, tags });
+    let savedImageBase64: string | undefined = undefined;
+    let noteIdForImage = initialNote?.id;
+    
+    if (type === 'photo') {
+      if (selectedImage) {
+        // Новое фото: сохраняем во временный ID или в ID заметки
+        const tempId = noteIdForImage || generateId();
+        savedImageBase64 = await saveNoteImage(tempId, selectedImage);
+        setSavedImageId(tempId);
+        onImageSaved?.(tempId, savedImageBase64);
+        noteIdForImage = tempId;
+      } else if (imagePreview && savedImageId) {
+        // Фото уже сохранено
+        savedImageBase64 = imagePreview;
+      }
+    }
+    
+    onSave({ 
+      title: title.trim(), 
+      content, 
+      type, 
+      borderColor, 
+      pinned, 
+      tags,
+      hasImage: type === 'photo' && (!!selectedImage || !!imagePreview),
+      imageUrl: savedImageBase64,
+    });
+    
     clearDraft();
     resetForm();
     onClose();
-  };
+  }, [type, textContent, listItems, title, borderColor, pinned, tags, initialNote, selectedImage, imagePreview, savedImageId, onSave, onImageSaved, onClose]);
+
+  useImperativeHandle(ref, () => ({
+    save: () => {
+      if (isOpen) {
+        handleSave();
+      }
+    },
+  }));
 
   const handleAddTag = (tag: string) => {
     if (tags.length < 5 && !tags.includes(tag)) {
@@ -223,12 +301,14 @@ export function NoteModal({
 
   const hasContent = type === 'text' 
     ? textContent.trim().length > 0 
-    : listItems.some(item => item.text.trim().length > 0);
+    : type === 'list'
+      ? listItems.some(item => item.text.trim().length > 0)
+      : textContent.trim().length > 0 || !!imagePreview;
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={(e) => e.target === e.currentTarget && handleClose()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="bg-black rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border-2" style={{ borderColor }}>
         <div className="sticky top-0 bg-black border-b border-gray-800 p-4 flex justify-between items-center">
           <h2 className="text-white text-xl font-semibold">{initialNote ? 'Редактировать заметку' : 'Новая заметка'}</h2>
@@ -244,7 +324,6 @@ export function NoteModal({
             className="w-full bg-gray-900 text-white text-lg font-medium px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500"
           />
           
-          {/* Переключение типа с сохранением контента */}
           <div className="flex gap-2">
             <button
               onClick={() => handleTypeChange('text')}
@@ -262,9 +341,17 @@ export function NoteModal({
             >
               ✓ Список
             </button>
+            <button
+              onClick={() => handleTypeChange('photo')}
+              className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+                type === 'photo' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              🖼️ Фото
+            </button>
           </div>
           
-          {type === 'text' ? (
+          {type === 'text' && (
             <textarea
               placeholder="Текст заметки..."
               value={textContent}
@@ -272,7 +359,9 @@ export function NoteModal({
               rows={8}
               className="w-full bg-gray-900 text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500 resize-none"
             />
-          ) : (
+          )}
+          
+          {type === 'list' && (
             <div className="space-y-2">
               {listItems.map((item) => (
                 <div key={item.id} className="flex items-center gap-2 bg-gray-900 rounded-lg p-2">
@@ -298,6 +387,50 @@ export function NoteModal({
               >
                 + Добавить пункт
               </button>
+            </div>
+          )}
+          
+          {type === 'photo' && (
+            <div className="space-y-3">
+              <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
+                {isImageLoading ? (
+                  <div className="text-gray-400">Загрузка...</div>
+                ) : imagePreview ? (
+                  <div className="relative">
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      className="max-h-48 mx-auto rounded-lg object-contain"
+                    />
+                    <button
+                      onClick={removeImage}
+                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-700"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <label className="cursor-pointer">
+                      <span className="text-purple-400 hover:text-purple-300">📷 Загрузить фото</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-gray-500 text-xs mt-2">PNG, JPG, GIF до 5MB</p>
+                  </>
+                )}
+              </div>
+              <textarea
+                placeholder="Текст под фото..."
+                value={textContent}
+                onChange={(e) => setTextContent(e.target.value)}
+                rows={4}
+                className="w-full bg-gray-900 text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500 resize-none"
+              />
             </div>
           )}
           
@@ -342,7 +475,7 @@ export function NoteModal({
             </button>
           </div>
 
-          {onSaveAsTemplate && (
+          {initialNote && onSaveAsTemplate && type !== 'photo' && (
             <button
               onClick={onSaveAsTemplate}
               disabled={!hasContent || isTemplateLimitReached}
@@ -356,7 +489,7 @@ export function NoteModal({
                   ? 'Заполните содержание заметки' 
                   : isTemplateLimitReached 
                     ? 'Достигнут лимит шаблонов (20)' 
-                    : ''
+                    : 'Сохранить текущую заметку как шаблон'
               }
             >
               📋 Сохранить как шаблон
@@ -400,4 +533,6 @@ export function NoteModal({
       )}
     </div>
   );
-}
+});
+
+NoteModal.displayName = 'NoteModal';

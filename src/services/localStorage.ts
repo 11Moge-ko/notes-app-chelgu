@@ -1,9 +1,27 @@
 // services/localStorage.ts
-import type { Note, Settings, Template } from '../types';
+import type { Note, Settings, Template, } from '../types';
 
 const NOTES_KEY = 'notes_v1';
 const TEMPLATES_KEY = 'templates_v1';
 const SETTINGS_KEY = 'settings_v1';
+
+// ========== ПРОВЕРКА ОШИБОК ==========
+export function isQuotaExceededError(error: unknown): boolean {
+  return error instanceof DOMException && 
+    (error.name === 'QuotaExceededError' || error.code === 22);
+}
+
+export function safeSaveNotes(notes: Note[]): { success: boolean; error?: Error } {
+  try {
+    localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+    return { success: true };
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      return { success: false, error: new Error('QUOTA_EXCEEDED') };
+    }
+    throw error;
+  }
+}
 
 // ========== ЗАМЕТКИ ==========
 export function getNotes(): Note[] {
@@ -13,7 +31,7 @@ export function getNotes(): Note[] {
     return JSON.parse(data);
   } catch {
     console.error('Ошибка парсинга заметок');
-    return [];
+    throw new Error('CORRUPTED_DATA');
   }
 }
 
@@ -57,27 +75,6 @@ export function saveTemplates(templates: Template[]): void {
   localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
 }
 
-// ========== НАСТРОЙКИ ==========
-export function getSettings(): Settings {
-  const defaults: Settings = {
-    theme: 'dark',
-    sortBy: 'updatedAt',
-    filters: { pinnedOnly: false, hasImageOnly: false, selectedTags: [] },
-  };
-  const data = localStorage.getItem(SETTINGS_KEY);
-  if (!data) return defaults;
-  try {
-    return { ...defaults, ...JSON.parse(data) };
-  } catch {
-    return defaults;
-  }
-}
-
-export function saveSettings(settings: Settings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-}
-
-// ========== ШАБЛОНЫ (полная реализация) ==========
 export function addTemplate(template: Template): void {
   const templates = getTemplates();
   if (templates.length >= 20) {
@@ -100,4 +97,24 @@ export function updateTemplateUsage(id: string): void {
     templates[index].usageCount += 1;
     saveTemplates(templates);
   }
+}
+
+// ========== НАСТРОЙКИ ==========
+export function getSettings(): Settings {
+  const defaults: Settings = {
+    theme: 'dark',
+    sortBy: 'updatedAt',
+    filters: { pinnedOnly: false, hasImageOnly: false, selectedTags: [] },
+  };
+  const data = localStorage.getItem(SETTINGS_KEY);
+  if (!data) return defaults;
+  try {
+    return { ...defaults, ...JSON.parse(data) };
+  } catch {
+    return defaults;
+  }
+}
+
+export function saveSettings(settings: Settings): void {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }

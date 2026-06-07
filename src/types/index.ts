@@ -28,10 +28,11 @@ export interface Note {
 export interface Template {
   id: string;
   name: string;
+  title: string;           // ← ДОБАВЛЕНО — оригинальный заголовок заметки
   description?: string;
   content: string | ListItem[];
   type: 'text' | 'list';
-  borderColor: BorderColor;  // ← ДОБАВЛЕНО
+  borderColor: BorderColor;
   tags?: string[];
   createdAt: number;
   usageCount: number;

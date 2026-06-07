@@ -1,5 +1,5 @@
 // App.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNotesStore } from './store/useNotesStore';
 import { initDB } from './services/indexedDB';
 import { NoteModal } from './components/NoteEditor/NoteModal';
@@ -9,13 +9,19 @@ import { TemplateModal } from './components/TemplateModal/TemplateModal';
 import { SaveTemplateModal } from './components/TemplateModal/SaveTemplateModal';
 import { AddNoteMenu } from './components/FloatingActionButton/AddNoteMenu';
 import { useDebounce } from './hooks/useDebounce';
+import { useHotkeys } from './hooks/useHotkeys';
+import { ErrorModal } from './components/ui/ErrorModal';
+import { PhotoCleanupModal } from './components/ui/PhotoCleanupModal';
+import { ConfirmModal } from './components/ui/ConfirmModal';
 import type { Note } from './types';
 
 function App() {
   const { 
     notes, isLoading, loadNotes, addNote, updateNote, deleteNote, 
     togglePin, reorderNotes, settings, updateSettings,
-    templates, loadTemplates, saveAsTemplate, applyTemplate, deleteTemplate
+    templates, loadTemplates, saveAsTemplate, applyTemplate, deleteTemplate,
+    errorModal, photoCleanupModalOpen, closeErrorModal,
+    closePhotoCleanupModal
   } = useNotesStore();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -24,8 +30,25 @@ function App() {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [currentNoteForTemplate, setCurrentNoteForTemplate] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const noteModalRef = useRef<{ save: () => void }>(null);
+  const filterBarRef = useRef<{ close: () => void }>(null);
+
+  const bgStyle = {
+    background: settings.theme === 'light' 
+      ? '#ffffff' 
+      : 'radial-gradient(circle, rgba(0,0,0,1) 14%, rgba(9,6,19,1) 100%)',
+    minHeight: '100vh',
+  };
 
   useEffect(() => {
     loadNotes();
@@ -39,6 +62,49 @@ function App() {
       getNotes: () => useNotesStore.getState().notes 
     };
   }, [loadNotes, loadTemplates, addNote, updateNote, deleteNote, togglePin]);
+
+  useEffect(() => {
+    if (settings.theme === 'light') {
+      document.body.classList.add('light');
+    } else {
+      document.body.classList.remove('light');
+    }
+  }, [settings.theme]);
+
+  const handleNewNoteHotkey = () => {
+    handleNewNote();
+  };
+
+  const handleSaveNoteHotkey = () => {
+    if (isModalOpen && noteModalRef.current) {
+      noteModalRef.current.save();
+    }
+  };
+
+  const handleFocusSearchHotkey = () => {
+    searchInputRef.current?.focus();
+  };
+
+  const handleCloseModalHotkey = () => {
+    if (isModalOpen) {
+      setIsModalOpen(false);
+      setEditingNote(null);
+    }
+    if (isTemplateModalOpen) {
+      setIsTemplateModalOpen(false);
+    }
+    if (filterBarRef.current) {
+      filterBarRef.current.close();
+    }
+  };
+
+  useHotkeys({
+    onNewNote: handleNewNoteHotkey,
+    onSaveNote: handleSaveNoteHotkey,
+    onFocusSearch: handleFocusSearchHotkey,
+    onCloseModal: handleCloseModalHotkey,
+    isModalOpen: isModalOpen || isTemplateModalOpen,
+  });
 
   const allTags = Array.from(new Set(notes.flatMap(note => note.tags || [])));
 
@@ -108,11 +174,34 @@ function App() {
     setIsModalOpen(true);
   };
 
-  const handleOpenSaveTemplateModal = () => {
+  const handleSaveAsTemplateFromModal = () => {
     if (editingNote) {
       setCurrentNoteForTemplate(editingNote);
       setIsSaveTemplateModalOpen(true);
-    } else {}
+    }
+  };
+
+  const handlePhotoNote = async (file: File) => {
+    const { saveNoteImage } = await import('./services/indexedDB');
+    const base64 = await saveNoteImage('temp', file);
+    const newNoteData = {
+      title: '',
+      content: '',
+      type: 'photo' as const,
+      borderColor: '#bc57ca' as const,
+      pinned: false,
+      tags: [],
+      hasImage: true,
+      imageUrl: base64,
+    };
+    addNote(newNoteData);
+    setTimeout(() => {
+      const noteId = useNotesStore.getState().notes[0]?.id;
+      if (noteId) {
+        const note = useNotesStore.getState().notes.find(n => n.id === noteId);
+        if (note) handleEditNote(note);
+      }
+    }, 100);
   };
 
   const searchedNotes = filterNotesBySearch(notes, debouncedSearchQuery);
@@ -133,24 +222,25 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={bgStyle}>
         <div className="text-white text-xl">Загрузка Notes App...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6" style={{ background: 'var(--bg-app)' }}>
+    <div className="min-h-screen p-6" style={bgStyle}>
       <div className="max-w-7xl mx-auto">
         <h1 className="text-primary text-3xl font-bold mb-6">Notes App</h1>
         
         <div className="mb-4 flex gap-3">
           <div className="relative flex-1">
             <input
+              ref={searchInputRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск по заметкам..."
+              placeholder="Поиск по заметкам... (Ctrl+Q)"
               className="w-full bg-gray-900 text-white px-4 py-3 pl-10 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
             />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg">🔍</span>
@@ -172,12 +262,18 @@ function App() {
           </button>
         </div>
         
-        <FilterBar settings={settings} onSettingsChange={updateSettings} allTags={allTags} />
+        <FilterBar 
+          ref={filterBarRef}
+          settings={settings} 
+          onSettingsChange={updateSettings} 
+          allTags={allTags} 
+        />
         
         {notes.length === 0 ? (
           <div className="text-center text-muted py-12">
             <p>Нет заметок</p>
-            <p className="text-sm mt-2">Нажмите кнопку +, чтобы создать первую</p>
+            <p className="text-sm mt-2">Нажмите кнопку +, чтобы создать первую (Ctrl+Enter)</p>
+            <p className="text-xs mt-1 text-gray-500">Сохранить заметку (Ctrl+I)</p>
           </div>
         ) : showNoResults ? (
           <div className="text-center text-muted py-12">
@@ -202,16 +298,21 @@ function App() {
       <AddNoteMenu
         onNewNote={handleNewNote}
         onFromTemplate={() => setIsTemplateModalOpen(true)}
+        onPhotoNote={handlePhotoNote}
       />
 
       <NoteModal
+        ref={noteModalRef}
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setEditingNote(null); }}
         onSave={handleSaveNote}
         onDelete={deleteNote}
         initialNote={editingNote}
         allTags={allTags}
-        onSaveAsTemplate={handleOpenSaveTemplateModal}
+        onImageSaved={(noteId, base64) => {
+          updateNote(noteId, { imageUrl: base64, hasImage: true });
+        }}
+        onSaveAsTemplate={handleSaveAsTemplateFromModal}
         isTemplateLimitReached={templates.length >= 20}
       />
 
@@ -241,6 +342,37 @@ function App() {
           setCurrentNoteForTemplate(null);
         }}
       />
+
+      <ErrorModal
+        isOpen={errorModal?.isOpen || false}
+        onClose={closeErrorModal}
+        title={errorModal?.title || 'Ошибка'}
+        message={errorModal?.message || ''}
+        buttons={errorModal?.onExport ? [
+          { label: 'Экспортировать данные', onClick: errorModal.onExport, variant: 'secondary' },
+          { label: 'OK', onClick: closeErrorModal, variant: 'primary' },
+        ] : undefined}
+      />
+
+      <PhotoCleanupModal
+        isOpen={photoCleanupModalOpen}
+        onClose={closePhotoCleanupModal}
+      />
+
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={() => {
+            confirmModal.onConfirm();
+            setConfirmModal(null);
+          }}
+          onCancel={() => setConfirmModal(null)}
+          confirmText="Да, удалить"
+          cancelText="Нет"
+        />
+      )}
 
       <style>{`
         .masonry-grid {

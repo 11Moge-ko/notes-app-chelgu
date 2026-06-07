@@ -1,4 +1,4 @@
-// components/SaveTemplateModal.tsx
+// components/TemplateModal/SaveTemplateModal.tsx
 import { useState } from 'react';
 
 interface SaveTemplateModalProps {

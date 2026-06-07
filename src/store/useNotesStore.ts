@@ -1,13 +1,22 @@
 // store/useNotesStore.ts
 import { create } from 'zustand';
-import type { Note, Settings, Template, ListItem } from '../types';
+import type { Note, Settings, Template } from '../types';
 import { 
-  getNotes, saveNotes, addNote as addNoteToStorage, 
-  updateNote as updateNoteInStorage, deleteNote as deleteNoteFromStorage,
+  getNotes, saveNotes, 
+  deleteNote as deleteNoteFromStorage,
   getSettings, saveSettings,
-  getTemplates, addTemplate, deleteTemplate, updateTemplateUsage
+  getTemplates, addTemplate, deleteTemplate, updateTemplateUsage,
+  safeSaveNotes
 } from '../services/localStorage';
 import { generateId, now } from '../utils/helpers';
+import { deleteNoteImage, saveNoteImage } from '../services/indexedDB';
+
+interface ErrorModalState {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onExport?: () => void;
+}
 
 interface NotesStore {
   notes: Note[];
@@ -15,6 +24,8 @@ interface NotesStore {
   templates: Template[];
   isLoading: boolean;
   isLoadingTemplates: boolean;
+  errorModal: ErrorModalState | null;
+  photoCleanupModalOpen: boolean;
   
   loadNotes: () => void;
   loadTemplates: () => void;
@@ -27,6 +38,11 @@ interface NotesStore {
   saveAsTemplate: (name: string, description: string, note: Note) => boolean;
   applyTemplate: (template: Template) => Omit<Note, 'id' | 'createdAt' | 'updatedAt'>;
   deleteTemplate: (id: string) => void;
+  updateNoteImage: (id: string, base64: string) => Promise<void>;
+  showErrorModal: (title: string, message: string, onExport?: () => void) => void;
+  closeErrorModal: () => void;
+  showPhotoCleanupModal: () => void;
+  closePhotoCleanupModal: () => void;
 }
 
 export const useNotesStore = create<NotesStore>((set, get) => ({
@@ -35,15 +51,66 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   templates: [],
   isLoading: true,
   isLoadingTemplates: true,
+  errorModal: null,
+  photoCleanupModalOpen: false,
+
+  showErrorModal: (title, message, onExport) => {
+    set({ errorModal: { isOpen: true, title, message, onExport } });
+  },
+
+  closeErrorModal: () => {
+    set({ errorModal: null });
+  },
+
+  showPhotoCleanupModal: () => {
+    set({ photoCleanupModalOpen: true });
+  },
+
+  closePhotoCleanupModal: () => {
+    set({ photoCleanupModalOpen: false });
+  },
 
   loadNotes: () => {
-    const notes = getNotes();
-    const normalizedNotes = notes.map(note => ({
-      ...note,
-      pinned: note.pinned === true,
-    }));
-    set({ notes: normalizedNotes, isLoading: false });
-    console.log('📝 Загружено заметок:', normalizedNotes.length);
+    try {
+      const notes = getNotes();
+      const normalizedNotes = notes.map(note => ({
+        ...note,
+        pinned: note.pinned === true,
+      }));
+      set({ notes: normalizedNotes, isLoading: false });
+      console.log('📝 Загружено заметок:', normalizedNotes.length);
+    } catch (error) {
+      console.error('Ошибка загрузки заметок:', error);
+      set({ 
+        isLoading: false,
+        errorModal: {
+          isOpen: true,
+          title: 'Ошибка загрузки данных',
+          message: 'Данные повреждены. Загрузите экспортированные данные',
+          onExport: () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            input.onchange = async (e) => {
+              const file = (e.target as HTMLInputElement).files?.[0];
+              if (file) {
+                const text = await file.text();
+                try {
+                  const data = JSON.parse(text);
+                  if (data.notes) localStorage.setItem('notes_v1', JSON.stringify(data.notes));
+                  if (data.templates) localStorage.setItem('templates_v1', JSON.stringify(data.templates));
+                  if (data.settings) localStorage.setItem('settings_v1', JSON.stringify(data.settings));
+                  window.location.reload();
+                } catch {
+                  alert('Неверный формат файла');
+                }
+              }
+            };
+            input.click();
+          }
+        }
+      });
+    }
   },
 
   loadTemplates: () => {
@@ -60,25 +127,77 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       updatedAt: now(),
       pinned: noteData.pinned === true,
       tags: noteData.tags || [],
+      hasImage: noteData.type === 'photo' ? !!noteData.imageUrl : false,
     };
     
-    addNoteToStorage(newNote);
-    set(state => ({ notes: [newNote, ...state.notes] }));
+    const currentNotes = get().notes;
+    const newNotes = [newNote, ...currentNotes];
+    const { success, error } = safeSaveNotes(newNotes);
+    
+    if (!success && error?.message === 'QUOTA_EXCEEDED') {
+      get().showErrorModal(
+        'Не удалось сохранить!',
+        'Освободите место, удалив старые заметки',
+        () => {
+          const exportData = {
+            notes: get().notes,
+            templates: get().templates,
+            settings: get().settings,
+            exportDate: new Date().toISOString(),
+          };
+          const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `notes-backup-${Date.now()}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      );
+      return;
+    }
+    
+    set({ notes: newNotes });
     console.log('✅ Добавлена заметка:', newNote.id, 'pinned:', newNote.pinned);
-    return newNote;
   },
 
   updateNote: (id, updates) => {
-    updateNoteInStorage(id, updates);
-    set(state => ({
-      notes: state.notes.map(note =>
-        note.id === id ? { ...note, ...updates, updatedAt: now() } : note
-      )
-    }));
+    const currentNotes = get().notes;
+    const updatedNotes = currentNotes.map(note =>
+      note.id === id ? { ...note, ...updates, updatedAt: now() } : note
+    );
+    
+    const { success, error } = safeSaveNotes(updatedNotes);
+    
+    if (!success && error?.message === 'QUOTA_EXCEEDED') {
+      get().showErrorModal(
+        'Не удалось сохранить изменения!',
+        'Освободите место, удалив старые заметки',
+        () => {
+          const exportData = {
+            notes: get().notes,
+            templates: get().templates,
+            settings: get().settings,
+            exportDate: new Date().toISOString(),
+          };
+          const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `notes-backup-${Date.now()}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      );
+      return;
+    }
+    
+    set({ notes: updatedNotes });
     console.log('✏️ Обновлена заметка:', id, updates);
   },
 
   deleteNote: (id) => {
+    deleteNoteImage(id).catch(console.error);
     deleteNoteFromStorage(id);
     set(state => ({
       notes: state.notes.filter(note => note.id !== id)
@@ -137,28 +256,12 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
 
   saveAsTemplate: (name: string, description: string, note: Note) => {
     try {
-      // Нормализуем content: если это массив — оставляем как массив, если строка — пробуем распарсить
-      let normalizedContent: string | ListItem[] = note.content;
-      
-      // Если content — строка, проверяем, не является ли она JSON-строкой от массива
-      if (typeof note.content === 'string') {
-        try {
-          const parsed = JSON.parse(note.content);
-          if (Array.isArray(parsed)) {
-            // Это JSON-строка массива — восстанавливаем массив
-            normalizedContent = parsed as ListItem[];
-          }
-        } catch {
-          // Не парсится — оставляем как строку
-          normalizedContent = note.content;
-        }
-      }
-      
       const newTemplate: Template = {
         id: generateId(),
         name,
+        title: note.title,
         description,
-        content: normalizedContent,
+        content: note.content,
         type: note.type === 'photo' ? 'text' : note.type,
         borderColor: note.borderColor,
         tags: note.tags,
@@ -184,25 +287,21 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       )
     }));
     
-    // Нормализуем content для заметки
-    let noteContent: string | ListItem[] = template.content;
-    
-    // Если content — строка, пробуем распарсить как JSON-массив
+    let content: string | import('../types').ListItem[] = template.content;
     if (typeof template.content === 'string') {
       try {
         const parsed = JSON.parse(template.content);
         if (Array.isArray(parsed)) {
-          noteContent = parsed as ListItem[];
+          content = parsed;
         }
       } catch {
-        // Не парсится — оставляем как строку
-        noteContent = template.content;
+        // оставляем как строку
       }
     }
     
     return {
-      title: '',
-      content: noteContent,
+      title: template.title,
+      content,
       type: template.type,
       borderColor: template.borderColor,
       pinned: false,
@@ -216,5 +315,12 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       templates: state.templates.filter(t => t.id !== id)
     }));
     console.log('🗑️ Удалён шаблон:', id);
+  },
+
+  updateNoteImage: async (id: string, base64: string) => {
+    const response = await fetch(base64);
+    const blob = await response.blob();
+    const file = new File([blob], 'image.jpg', { type: blob.type });
+    await saveNoteImage(id, file);
   },
 }));
