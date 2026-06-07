@@ -49,6 +49,47 @@ export function NoteModal({
     localStorage.removeItem(DRAFT_KEY);
   };
 
+  // Преобразование текста в элемент списка
+  const convertTextToListItems = (text: string): ListItem[] => {
+    if (!text.trim()) return [];
+    
+    // Разбиваем текст по строкам
+    const lines = text.split('\n');
+    return lines.map((line, index) => ({
+      id: generateId(),
+      text: line,
+      isChecked: false,
+    }));
+  };
+
+  // Преобразование списка в текст
+  const convertListItemsToText = (items: ListItem[]): string => {
+    return items.map(item => item.text).join('\n');
+  };
+
+  // Обработчик переключения типа заметки
+  const handleTypeChange = (newType: NoteType) => {
+    if (newType === type) return;
+    
+    if (newType === 'list' && type === 'text') {
+      // Текст → Список: преобразуем текст в элементы списка
+      if (textContent.trim()) {
+        const newListItems = convertTextToListItems(textContent);
+        setListItems(newListItems);
+        setTextContent('');
+      }
+    } else if (newType === 'text' && type === 'list') {
+      // Список → Текст: преобразуем список в текст
+      if (listItems.length > 0) {
+        const newTextContent = convertListItemsToText(listItems);
+        setTextContent(newTextContent);
+        setListItems([]);
+      }
+    }
+    
+    setType(newType);
+  };
+
   // Загрузка данных при открытии модального окна
   useEffect(() => {
     if (isOpen) {
@@ -69,16 +110,15 @@ export function NoteModal({
         }
         setError('');
       } else {
-        // Создание новой заметки — НЕ загружаем черновик, всегда чистая форма
+        // Создание новой заметки — всегда чистая форма
         resetForm();
-        clearDraft(); // Очищаем старый черновик при создании новой заметки
+        clearDraft();
       }
     }
   }, [isOpen, initialNote]);
 
   // Автосохранение черновика (только при редактировании существующей заметки)
   useEffect(() => {
-    // Сохраняем черновик только если редактируем существующую заметку И есть контент
     if (!isOpen || !initialNote) return;
     
     const hasContent = title.trim() || 
@@ -97,7 +137,6 @@ export function NoteModal({
   }, [isOpen, initialNote, title, type, borderColor, pinned, tags, textContent, listItems]);
 
   const handleClose = useCallback(() => {
-    // При закрытии редактора существующей заметки сохраняем черновик
     if (initialNote) {
       const hasContent = title.trim() || 
                          textContent.trim() || 
@@ -205,9 +244,10 @@ export function NoteModal({
             className="w-full bg-gray-900 text-white text-lg font-medium px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500"
           />
           
+          {/* Переключение типа с сохранением контента */}
           <div className="flex gap-2">
             <button
-              onClick={() => setType('text')}
+              onClick={() => handleTypeChange('text')}
               className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
                 type === 'text' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
@@ -215,7 +255,7 @@ export function NoteModal({
               📝 Текст
             </button>
             <button
-              onClick={() => setType('list')}
+              onClick={() => handleTypeChange('list')}
               className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
                 type === 'list' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
