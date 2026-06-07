@@ -7,6 +7,7 @@ const MAX_TEMPLATES = 20;
 
 export interface TemplateInput {
   name: string;
+  title: string;
   description?: string;
   content: string | ListItem[];
   type: 'text' | 'list';
@@ -41,14 +42,10 @@ export function isLimitReached(): boolean {
   return getAll().length >= MAX_TEMPLATES;
 }
 
-// Нормализация content для сохранения
 function normalizeContentForSave(content: string | ListItem[]): string | ListItem[] {
-  // Если это массив — оставляем как массив
   if (Array.isArray(content)) {
     return content;
   }
-  
-  // Если это строка — пробуем распарсить как JSON-массив
   if (typeof content === 'string') {
     try {
       const parsed = JSON.parse(content);
@@ -56,21 +53,16 @@ function normalizeContentForSave(content: string | ListItem[]): string | ListIte
         return parsed as ListItem[];
       }
     } catch {
-      // Не парсится — оставляем как строку
+      // не парсится
     }
   }
-  
   return content;
 }
 
-// Нормализация content для применения
 function normalizeContentForApply(content: string | ListItem[]): string | ListItem[] {
-  // Если это массив — оставляем как массив
   if (Array.isArray(content)) {
     return content;
   }
-  
-  // Если это строка — пробуем распарсить как JSON-массив
   if (typeof content === 'string') {
     try {
       const parsed = JSON.parse(content);
@@ -78,10 +70,9 @@ function normalizeContentForApply(content: string | ListItem[]): string | ListIt
         return parsed as ListItem[];
       }
     } catch {
-      // Не парсится — оставляем как строку
+      // не парсится
     }
   }
-  
   return content;
 }
 
@@ -99,6 +90,7 @@ export function saveTemplate(input: TemplateInput): Template {
   const template: Template = {
     id: generateId(),
     name,
+    title: input.title,
     description: input.description?.trim() || undefined,
     content: normalizeContentForSave(input.content),
     type: input.type,
@@ -114,7 +106,7 @@ export function saveTemplate(input: TemplateInput): Template {
 }
 
 export function saveTemplateFromNote(
-  note: Pick<Note, 'content' | 'type' | 'tags' | 'borderColor'>,
+  note: Pick<Note, 'content' | 'type' | 'tags' | 'borderColor' | 'title'>,
   name: string,
   description?: string
 ): Template {
@@ -123,6 +115,7 @@ export function saveTemplateFromNote(
   }
   return saveTemplate({
     name,
+    title: note.title,
     description,
     content: note.content,
     type: note.type,
@@ -143,7 +136,7 @@ export function applyTemplate(
 
   const t = templates[idx];
   return {
-    title: '',
+    title: t.title,
     content: normalizeContentForApply(t.content),
     type: t.type,
     borderColor: t.borderColor,

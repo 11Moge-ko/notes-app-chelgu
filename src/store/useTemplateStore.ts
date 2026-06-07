@@ -1,3 +1,4 @@
+// store/useTemplateStore.ts
 import { create } from 'zustand';
 import type { Note, Template } from '../types';
 import * as templateService from '../services/templateService';
@@ -7,7 +8,7 @@ interface TemplateStore {
   isLoading: boolean;
   loadTemplates: () => void;
   createFromNote: (
-    note: Pick<Note, 'content' | 'type' | 'tags'>,
+    note: Pick<Note, 'content' | 'type' | 'tags' | 'borderColor' | 'title'>,
     name: string,
     description?: string
   ) => Template | null;

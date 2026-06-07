@@ -1,5 +1,5 @@
 // components/NoteEditor/NoteModal.tsx
-import { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
 import type { Note, ListItem, BorderColor, NoteType } from '../../types';
 import { generateId } from '../../utils/helpers';
 import { TagInput } from '../ui/TagInput';
@@ -38,6 +38,7 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [savedImageId, setSavedImageId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetForm = () => {
     setTitle('');
@@ -101,17 +102,22 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
     }
   };
 
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
   const removeImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
-    // Если есть сохранённое фото, удаляем его из IndexedDB
     if (savedImageId) {
       deleteNoteImage(savedImageId);
       setSavedImageId(null);
     }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
-  // Загрузка существующего фото при открытии
   useEffect(() => {
     if (isOpen && initialNote && initialNote.type === 'photo' && initialNote.hasImage) {
       setIsImageLoading(true);
@@ -195,6 +201,7 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
     resetForm();
     setShowDeleteConfirm(false);
     onClose();
+    window.location.reload();
   };
 
   const handleSave = useCallback(async () => {
@@ -229,14 +236,12 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
     
     if (type === 'photo') {
       if (selectedImage) {
-        // Новое фото: сохраняем во временный ID или в ID заметки
         const tempId = noteIdForImage || generateId();
         savedImageBase64 = await saveNoteImage(tempId, selectedImage);
         setSavedImageId(tempId);
         onImageSaved?.(tempId, savedImageBase64);
         noteIdForImage = tempId;
       } else if (imagePreview && savedImageId) {
-        // Фото уже сохранено
         savedImageBase64 = imagePreview;
       }
     }
@@ -255,6 +260,7 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
     clearDraft();
     resetForm();
     onClose();
+    window.location.reload();
   }, [type, textContent, listItems, title, borderColor, pinned, tags, initialNote, selectedImage, imagePreview, savedImageId, onSave, onImageSaved, onClose]);
 
   useImperativeHandle(ref, () => ({
@@ -392,6 +398,13 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
           
           {type === 'photo' && (
             <div className="space-y-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
               <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
                 {isImageLoading ? (
                   <div className="text-gray-400">Загрузка...</div>
@@ -410,18 +423,12 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
                     </button>
                   </div>
                 ) : (
-                  <>
-                    <label className="cursor-pointer">
-                      <span className="text-purple-400 hover:text-purple-300">📷 Загрузить фото</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageSelect}
-                        className="hidden"
-                      />
-                    </label>
-                    <p className="text-gray-500 text-xs mt-2">PNG, JPG, GIF до 5MB</p>
-                  </>
+                  <button
+                    onClick={openFilePicker}
+                    className="text-purple-400 hover:text-purple-300 cursor-pointer"
+                  >
+                    📷 Загрузить фото
+                  </button>
                 )}
               </div>
               <textarea

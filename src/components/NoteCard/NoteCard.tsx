@@ -33,7 +33,11 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
     if (note.type === 'photo' && note.hasImage) {
       setIsImageLoading(true);
       getNoteImage(note.id).then(base64 => {
-        if (base64) setImageUrl(base64);
+        if (base64) {
+          setImageUrl(base64);
+        }
+        setIsImageLoading(false);
+      }).catch(() => {
         setIsImageLoading(false);
       });
     }
@@ -138,7 +142,7 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
             )}
             
             <div className="text-secondary text-sm whitespace-pre-line wrap-break-word overflow-hidden max-h-40">
-              {preview || <span className="text-muted">Нет содержания</span>}
+              {preview || <span className="text-muted">Нет текста</span>}
             </div>
             
             <div className="text-muted text-xs mt-2 opacity-50">
@@ -177,7 +181,7 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
           )}
           
           <div className="text-secondary text-base whitespace-pre-line wrap-break-word overflow-hidden max-h-40">
-            {preview || <span className="text-muted">Нет содержания</span>}
+            {preview || <span className="text-muted">Нет текста</span>}
           </div>
           
           <div className="text-muted text-xs mt-2 opacity-50">

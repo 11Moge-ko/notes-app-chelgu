@@ -162,6 +162,7 @@ function App() {
     }
     setIsModalOpen(false);
     setEditingNote(null);
+    window.location.reload();
   };
 
   const handleEditNote = (note: Note) => {
@@ -181,9 +182,7 @@ function App() {
     }
   };
 
-  const handlePhotoNote = async (file: File) => {
-    const { saveNoteImage } = await import('./services/indexedDB');
-    const base64 = await saveNoteImage('temp', file);
+  const handlePhotoNote = () => {
     const newNoteData = {
       title: '',
       content: '',
@@ -191,8 +190,8 @@ function App() {
       borderColor: '#bc57ca' as const,
       pinned: false,
       tags: [],
-      hasImage: true,
-      imageUrl: base64,
+      hasImage: false,
+      imageUrl: undefined,
     };
     addNote(newNoteData);
     setTimeout(() => {

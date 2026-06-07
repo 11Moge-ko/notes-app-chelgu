@@ -1,6 +1,6 @@
 // components/TemplateModal.tsx
 import { useState, useEffect } from 'react';
-import type { Template } from '../types';
+import type { Template } from '../../types';
 
 interface TemplateModalProps {
   isOpen: boolean;
