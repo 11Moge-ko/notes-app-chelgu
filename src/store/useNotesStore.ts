@@ -28,7 +28,7 @@ interface NotesStore {
   
   loadNotes: () => void;
   loadTemplates: () => void;
-  addNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => Note;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   togglePin: (id: string) => void;
@@ -153,11 +153,12 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
           URL.revokeObjectURL(url);
         }
       );
-      return;
+      return newNote; 
     }
     
     set({ notes: newNotes });
     console.log('✅ Добавлена заметка:', newNote.id, 'pinned:', newNote.pinned);
+    return newNote;
   },
 
   updateNote: (id, updates) => {

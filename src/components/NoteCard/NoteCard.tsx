@@ -30,17 +30,26 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
 
   useEffect(() => {
     if (note.type === 'photo' && note.hasImage) {
-      setIsImageLoading(true);
-      getNoteImage(note.id).then(base64 => {
-        if (base64) {
-          setImageUrl(base64);
-        }
+      if (note.imageUrl) {
+        setImageUrl(note.imageUrl);
         setIsImageLoading(false);
-      }).catch(() => {
-        setIsImageLoading(false);
-      });
+      } else {
+        setIsImageLoading(true);
+        getNoteImage(note.id).then(base64 => {
+          if (base64) {
+            setImageUrl(base64);
+          } else {
+            setImageUrl(null);
+          }
+          setIsImageLoading(false);
+        }).catch(() => {
+          setIsImageLoading(false);
+        });
+      }
+    } else {
+      setImageUrl(null);
     }
-  }, [note.id, note.type, note.hasImage]);
+  }, [note.id, note.type, note.hasImage, note.imageUrl]);
 
   const getContentPreview = (): string => {
     if (note.type === 'list' && Array.isArray(note.content)) {
@@ -91,70 +100,70 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
         e.currentTarget.style.boxShadow = 'none';
       }}
     >
-      {note.type === 'photo' ? (
-        <div className="flex gap-3">
-          <div className="shrink-0">
-            {isImageLoading ? (
-              <div className="w-16 h-16 bg-gray-800 rounded-lg flex items-center justify-center">
-                <span className="text-gray-500 text-xs">...</span>
-              </div>
-            ) : imageUrl ? (
-              <img 
-                src={imageUrl} 
-                alt="preview" 
-                className="w-16 h-16 object-cover rounded-lg"
-              />
-            ) : (
-              <div className="w-16 h-16 bg-gray-800 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">🖼️</span>
-              </div>
-            )}
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex justify-between items-start gap-2 mb-2">
-              <h3 className="text-white font-medium text-lg wrap-break-word overflow-hidden flex-1 min-w-0">
-                {note.title || 'Без заголовка'}
-              </h3>
-              {isPinned && (
-                <button
-                  onClick={handlePinClick}
-                  className="text-base shrink-0 text-yellow-400 scale-110 transition-all duration-200 hover:scale-125"
-                  title="Открепить"
-                >
-                  📌
-                </button>
+        {note.type === 'photo' ? (
+          <>
+            {/* Изображение на всю ширину карточки */}
+            <div className="-mx-4 -mt-4 mb-3 relative">
+              {isImageLoading ? (
+                <div className="w-full h-48 bg-gray-800 rounded-t-xl flex items-center justify-center">
+                  <span className="text-gray-500 text-sm">Загрузка...</span>
+                </div>
+              ) : imageUrl ? (
+                <>
+                  <img 
+                    src={imageUrl} 
+                    alt="preview" 
+                    className="w-full h-48 object-cover rounded-t-xl"
+                  />
+                  {isPinned && (
+                    <button
+                      onClick={handlePinClick}
+                      className="absolute top-2 right-2 bg-black/60 text-yellow-400 rounded-full w-8 h-8 flex items-center justify-center text-base hover:bg-black/80 transition-colors"
+                      title="Открепить"
+                    >
+                      📌
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="w-full h-48 bg-gray-800 rounded-t-xl flex items-center justify-center">
+                  <span className="text-4xl">🖼️</span>
+                </div>
               )}
             </div>
             
-            {note.tags && note.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {note.tags.slice(0, 3).map((tag) => (
-                  <span key={tag} className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5 rounded-full">
-                    #{tag}
-                  </span>
-                ))}
-                {note.tags.length > 3 && (
-                  <span className="text-gray-500 text-xs">+{note.tags.length - 3}</span>
-                )}
+            {/* Контент под изображением */}
+            <div>
+              <h3 className="text-white font-medium text-lg break-words line-clamp-2 mb-2">
+                {note.title || 'Без заголовка'}
+              </h3>
+              
+              {note.tags && note.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {note.tags.slice(0, 3).map((tag) => (
+                    <span key={tag} className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5 rounded-full">
+                      #{tag}
+                    </span>
+                  ))}
+                  {note.tags.length > 3 && (
+                    <span className="text-gray-500 text-xs">+{note.tags.length - 3}</span>
+                  )}
+                </div>
+              )}
+              
+              <div className="text-secondary text-sm wrap-break-word line-clamp-4">
+                {preview || <span className="text-muted">Нет текста</span>}
               </div>
-            )}
-            
-            <div className="text-secondary text-sm whitespace-pre-line wrap-break-word overflow-hidden max-h-40">
-              {preview || <span className="text-muted">Нет текста</span>}
             </div>
-            
-            <div className="text-muted text-xs mt-2 opacity-50">
-              🖼️ Фото
-            </div>
-          </div>
-        </div>
-      ) : (
+          </>
+        ) : (
         <>
           <div className="flex justify-between items-start gap-2 mb-2">
-            <h3 className="text-white font-medium text-lg wrap-break-word overflow-hidden flex-1 min-w-0">
-              {note.title || 'Без заголовка'}
-            </h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-white font-medium text-lg break-words line-clamp-2">
+                {note.title || 'Без заголовка'}
+              </h3>
+            </div>
             {isPinned && (
               <button
                 onClick={handlePinClick}
@@ -179,7 +188,7 @@ export function NoteCard({ note, onTogglePin }: NoteCardProps) {
             </div>
           )}
           
-          <div className="text-secondary text-base whitespace-pre-line wrap-break-word overflow-hidden max-h-40">
+          <div className="text-secondary text-base wrap-break-word line-clamp-4">
             {preview || <span className="text-muted">Нет текста</span>}
           </div>
           

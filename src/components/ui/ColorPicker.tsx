@@ -1,3 +1,4 @@
+import { useNotesStore } from '../../store/useNotesStore';
 import type { BorderColor } from '../../types';
 
 interface ColorPickerProps {
@@ -13,9 +14,14 @@ const colors: { value: BorderColor; label: string }[] = [
 ];
 
 export function ColorPicker({ selectedColor, onColorChange }: ColorPickerProps) {
+  const { settings } = useNotesStore();
+  const isLightTheme = settings.theme === 'light';
+
   return (
     <div className="space-y-2">
-      <label className="text-gray-400 text-sm">Цвет обводки</label>
+      <label className={`text-sm ${isLightTheme ? 'text-gray-700' : 'text-gray-400'}`}>
+        Цвет обводки
+      </label>
       <div className="flex gap-3">
         {colors.map((color) => (
           <button
@@ -23,11 +29,17 @@ export function ColorPicker({ selectedColor, onColorChange }: ColorPickerProps) 
             onClick={() => onColorChange(color.value)}
             className={`
               w-8 h-8 rounded-full transition-all duration-200
-              hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white
-              ${selectedColor === color.value ? 'ring-2 ring-white scale-110' : 'ring-0'}
+              hover:scale-110 focus:outline-none
+              ${selectedColor === color.value 
+                ? isLightTheme 
+                  ? 'ring-2 ring-gray-900 scale-110' 
+                  : 'ring-2 ring-white scale-110'
+                : 'ring-0'
+              }
             `}
             style={{ backgroundColor: color.value }}
             title={color.label}
+            aria-label={color.label}
           />
         ))}
       </div>

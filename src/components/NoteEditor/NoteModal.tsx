@@ -8,20 +8,23 @@ import { getNoteImage, saveNoteImage, deleteNoteImage } from '../../services/ind
 interface NoteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onSave: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => string;
   onDelete?: (id: string) => void;
   initialNote?: Note | null;
   allTags?: string[];
   onImageSaved?: (noteId: string, base64: string) => void;
   onSaveAsTemplate?: () => void;
   isTemplateLimitReached?: boolean;
+  newNoteType?: NoteType;
+  templateData?: Omit<Note, 'id' | 'createdAt' | 'updatedAt'> | null;
 }
 
 const DRAFT_KEY = 'draft_v1';
 
 export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({ 
   isOpen, onClose, onSave, initialNote, allTags = [],
-  onDelete, onImageSaved, onSaveAsTemplate, isTemplateLimitReached = false
+  onDelete, onImageSaved, onSaveAsTemplate, isTemplateLimitReached = false,
+  newNoteType, templateData
 }, ref) => {
   const [title, setTitle] = useState('');
   const [type, setType] = useState<NoteType>('text');
@@ -38,6 +41,7 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [savedImageId, setSavedImageId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const modalContentRef = useRef<HTMLDivElement>(null);
 
   const resetForm = () => {
     setTitle('');
@@ -74,16 +78,13 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
   const handleTypeChange = (newType: NoteType) => {
     if (newType === type) return;
     
-    if (newType === 'list' && type === 'text') {
-      if (textContent.trim()) {
-        setListItems(convertTextToListItems(textContent));
-        setTextContent('');
-      }
-    } else if (newType === 'text' && type === 'list') {
-      if (listItems.length > 0) {
-        setTextContent(convertListItemsToText(listItems));
-        setListItems([]);
-      }
+    if (type === 'list') {
+      setTextContent(convertListItemsToText(listItems));
+      setListItems([]);
+    }
+    
+    if (newType === 'list' && textContent.trim()) {
+      setListItems(convertTextToListItems(textContent));
     }
     
     setType(newType);
@@ -105,18 +106,6 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
     fileInputRef.current?.click();
   };
 
-  const removeImage = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
-    if (savedImageId) {
-      deleteNoteImage(savedImageId);
-      setSavedImageId(null);
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   useEffect(() => {
     if (isOpen && initialNote && initialNote.type === 'photo' && initialNote.hasImage) {
       setIsImageLoading(true);
@@ -129,6 +118,8 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
       });
     }
   }, [isOpen, initialNote]);
+
+
 
   useEffect(() => {
     if (isOpen) {
@@ -150,12 +141,27 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
           setListItems([]);
         }
         setError('');
+      } else if (templateData) {
+        setTitle(templateData.title || '');
+        setType(templateData.type);
+        setBorderColor(templateData.borderColor);
+        setPinned(templateData.pinned || false);
+        setTags(templateData.tags || []);
+        
+        if (templateData.type === 'list' && Array.isArray(templateData.content)) {
+          setListItems(templateData.content);
+          setTextContent('');
+        } else {
+          setTextContent(typeof templateData.content === 'string' ? templateData.content : '');
+          setListItems([]);
+        }
+        setError('');
       } else {
         resetForm();
         clearDraft();
       }
     }
-  }, [isOpen, initialNote]);
+  }, [isOpen, initialNote, templateData]);
 
   useEffect(() => {
     if (!isOpen || !initialNote) return;
@@ -174,6 +180,17 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
     
     return () => clearInterval(interval);
   }, [isOpen, initialNote, title, type, borderColor, pinned, tags, textContent, listItems]);
+
+    useEffect(() => {
+    if (isOpen && !initialNote && newNoteType && newNoteType !== type) {
+      setType(newNoteType);
+      if (newNoteType === 'photo') {
+        setTimeout(() => {
+          fileInputRef.current?.click();
+        }, 300);
+      }
+    }
+  }, [isOpen, initialNote, newNoteType]);
 
   const handleClose = useCallback(() => {
     if (initialNote) {
@@ -200,67 +217,77 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
     resetForm();
     setShowDeleteConfirm(false);
     onClose();
-    window.location.reload();
   };
 
-  const handleSave = useCallback(async () => {
-    let isValid = false;
-    let content: string | ListItem[] = '';
-    
-    if (type === 'text') {
-      if (textContent.trim().length >= 1) {
-        isValid = true;
-        content = textContent;
-      }
-    } else if (type === 'list') {
-      const validItems = listItems.filter(item => item.text.trim());
-      if (validItems.length >= 1) {
-        isValid = true;
-        content = listItems;
-      }
-    } else if (type === 'photo') {
-      if (textContent.trim().length >= 1 || imagePreview) {
-        isValid = true;
-        content = textContent;
-      }
+const handleSave = useCallback(async () => {
+  let isValid = false;
+  let content: string | ListItem[] = '';
+  
+  if (type === 'text') {
+    if (textContent.trim().length >= 1) {
+      isValid = true;
+      content = textContent;
     }
-    
-    if (!isValid) {
-      setError('Содержание не может быть пустым');
+  } else if (type === 'list') {
+    const validItems = listItems.filter(item => item.text.trim());
+    if (validItems.length >= 1) {
+      isValid = true;
+      content = listItems;
+    }
+  } else if (type === 'photo') {
+    if (!imagePreview && !selectedImage) {
+      setError('Для фотозаметки необходимо загрузить изображение');
+      const uploadArea = document.getElementById('photo-upload-area');
+      if (uploadArea) {
+        uploadArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
-    
-    let savedImageBase64: string | undefined = undefined;
-    let noteIdForImage = initialNote?.id;
-    
-    if (type === 'photo') {
-      if (selectedImage) {
-        const tempId = noteIdForImage || generateId();
-        savedImageBase64 = await saveNoteImage(tempId, selectedImage);
-        setSavedImageId(tempId);
-        onImageSaved?.(tempId, savedImageBase64);
-        noteIdForImage = tempId;
-      } else if (imagePreview && savedImageId) {
-        savedImageBase64 = imagePreview;
-      }
+    if (textContent.trim().length >= 1 || imagePreview || selectedImage) {
+      isValid = true;
+      content = textContent;
     }
-    
-    onSave({ 
-      title: title.trim(), 
-      content, 
-      type, 
-      borderColor, 
-      pinned, 
-      tags,
-      hasImage: type === 'photo' && (!!selectedImage || !!imagePreview),
-      imageUrl: savedImageBase64,
-    });
-    
-    clearDraft();
-    resetForm();
-    onClose();
-    window.location.reload();
-  }, [type, textContent, listItems, title, borderColor, pinned, tags, initialNote, selectedImage, imagePreview, savedImageId, onSave, onImageSaved, onClose]);
+  }
+  
+  if (!isValid) {
+    setError('Содержание не может быть пустым');
+    return;
+  }
+  
+  const noteId = onSave({ 
+    title: title.trim(), 
+    content, 
+    type, 
+    borderColor, 
+    pinned, 
+    tags,
+    hasImage: type === 'photo' && (!!selectedImage || !!imagePreview),
+    imageUrl: undefined,
+  });
+  
+  if (type === 'photo' && selectedImage) {
+    try {
+      const base64 = await saveNoteImage(noteId, selectedImage);
+      onImageSaved?.(noteId, base64);
+    } catch (error) {
+      console.error('Ошибка сохранения изображения:', error);
+    }
+  } else if (type === 'photo' && imagePreview && savedImageId && savedImageId !== noteId) {
+    try {
+      await deleteNoteImage(savedImageId);
+      const blob = await fetch(imagePreview).then(r => r.blob());
+      const file = new File([blob], 'img', { type: blob.type });
+      const base64 = await saveNoteImage(noteId, file);
+      onImageSaved?.(noteId, base64);
+    } catch (error) {
+      console.error('Ошибка сохранения изображения:', error);
+    }
+  }
+  
+  clearDraft();
+  resetForm();
+  onClose();
+}, [type, textContent, listItems, title, borderColor, pinned, tags, initialNote, selectedImage, imagePreview, savedImageId, onSave, onImageSaved, onClose]);
 
   useImperativeHandle(ref, () => ({
     save: () => {
@@ -315,12 +342,12 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="bg-black rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border-2" style={{ borderColor }}>
-        <div className="sticky top-0 bg-black border-b border-gray-800 p-4 flex justify-between items-center">
+        <div className="sticky top-0 bg-black border-b border-gray-800 p-4 flex justify-between items-center z-10">
           <h2 className="text-white text-xl font-semibold">{initialNote ? 'Редактировать заметку' : 'Новая заметка'}</h2>
           <button onClick={handleClose} className="text-gray-400 hover:text-white text-2xl leading-none">✕</button>
         </div>
         
-        <div className="p-4 space-y-4">
+        <div ref={modalContentRef} className="p-4 space-y-4">
           <input
             type="text"
             placeholder="Заголовок"
@@ -404,29 +431,45 @@ export const NoteModal = forwardRef<{ save: () => void }, NoteModalProps>(({
                 onChange={handleImageSelect}
                 className="hidden"
               />
-              <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
+              <div id="photo-upload-area">
                 {isImageLoading ? (
-                  <div className="text-gray-400">Загрузка...</div>
+                  <div className="border-2 border-dashed border-gray-700 rounded-lg p-8 text-center">
+                    <div className="text-gray-400">Загрузка...</div>
+                  </div>
                 ) : imagePreview ? (
-                  <div className="relative">
+                  <div 
+                    className="relative group cursor-pointer rounded-lg overflow-hidden bg-gray-900"
+                    onClick={openFilePicker}
+                  >
                     <img 
                       src={imagePreview} 
                       alt="Preview" 
-                      className="max-h-48 mx-auto rounded-lg object-contain"
+                      className="w-full max-h-96 object-contain block"
                     />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+                      <span className="opacity-0 group-hover:opacity-100 text-white text-sm bg-black/70 px-4 py-2 rounded-lg transition-opacity pointer-events-none">
+                        📷 Нажмите, чтобы заменить фото
+                      </span>
+                    </div>
                     <button
-                      onClick={removeImage}
-                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-700"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openFilePicker();
+                      }}
+                      className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm transition-colors"
+                      type="button"
+                      title="Заменить фото"
                     >
-                      ✕
+                      
                     </button>
                   </div>
                 ) : (
                   <button
                     onClick={openFilePicker}
-                    className="text-purple-400 hover:text-purple-300 cursor-pointer"
+                    className="w-full border-2 border-dashed border-gray-700 rounded-lg p-10 text-center text-purple-400 hover:text-purple-300 hover:border-purple-500 cursor-pointer transition-colors"
                   >
-                    📷 Загрузить фото
+                    <div className="text-5xl mb-2">📷</div>
+                    <div className="text-sm">Нажмите, чтобы загрузить фото</div>
                   </button>
                 )}
               </div>

@@ -13,6 +13,7 @@ export function TagInput({ tags, onAddTag, onRemoveTag, existingTags, maxTags = 
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const clickedSuggestionRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (inputValue.trim()) {
@@ -49,6 +50,11 @@ export function TagInput({ tags, onAddTag, onRemoveTag, existingTags, maxTags = 
   };
 
   const handleBlur = () => {
+    if (clickedSuggestionRef.current) {
+      clickedSuggestionRef.current = null;
+      return;
+    }
+    
     setTimeout(() => {
       if (inputValue.trim()) {
         addTag(inputValue);
@@ -58,6 +64,8 @@ export function TagInput({ tags, onAddTag, onRemoveTag, existingTags, maxTags = 
   };
 
   const handleSuggestionClick = (suggestion: string) => {
+    clickedSuggestionRef.current = suggestion;
+    setInputValue('');
     addTag(suggestion);
     inputRef.current?.focus();
   };
@@ -80,19 +88,22 @@ export function TagInput({ tags, onAddTag, onRemoveTag, existingTags, maxTags = 
           className="w-full bg-gray-900 text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500 disabled:opacity-50"
         />
         
-        {showSuggestions && (
-          <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
-            {suggestions.map((suggestion) => (
-              <button
-                key={suggestion}
-                onClick={() => handleSuggestionClick(suggestion)}
-                className="w-full text-left px-4 py-2 text-gray-300 hover:bg-gray-700 transition-colors"
-              >
-                #{suggestion}
-              </button>
-            ))}
-          </div>
-        )}
+      {showSuggestions && (
+        <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSuggestionClick(suggestion);
+              }}
+              className="w-full text-left px-4 py-2 text-gray-300 hover:bg-gray-700 transition-colors"
+            >
+              #{suggestion}
+            </button>
+          ))}
+        </div>
+      )}
       </div>
       
       {tags.length > 0 && (

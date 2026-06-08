@@ -13,6 +13,7 @@ import { ErrorModal } from './components/ui/ErrorModal';
 import { PhotoCleanupModal } from './components/ui/PhotoCleanupModal';
 import { ConfirmModal } from './components/ui/ConfirmModal';
 import type { Note } from './types';
+import type { NoteType } from './types';
 
 function App() {
   const { 
@@ -29,6 +30,8 @@ function App() {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [currentNoteForTemplate, setCurrentNoteForTemplate] = useState<Note | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [newNoteType, setNewNoteType] = useState<NoteType>('text');
+  const [templateData, setTemplateData] = useState<Omit<Note, 'id' | 'createdAt' | 'updatedAt'> | null>(null); 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -153,15 +156,20 @@ function App() {
     });
   };
 
-  const handleSaveNote = (noteData: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleSaveNote = (noteData: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): string => {
+    let noteId: string;
     if (editingNote) {
       updateNote(editingNote.id, noteData);
+      noteId = editingNote.id;
     } else {
-      addNote(noteData);
+      const newNote = addNote(noteData);
+      noteId = newNote.id;
     }
     setIsModalOpen(false);
     setEditingNote(null);
-    window.location.reload();
+    setNewNoteType('text');
+    setTemplateData(null);
+    return noteId;
   };
 
   const handleEditNote = (note: Note) => {
@@ -171,6 +179,8 @@ function App() {
 
   const handleNewNote = () => {
     setEditingNote(null);
+    setNewNoteType('text');
+    setTemplateData(null);
     setIsModalOpen(true);
   };
 
@@ -182,24 +192,10 @@ function App() {
   };
 
   const handlePhotoNote = () => {
-    const newNoteData = {
-      title: '',
-      content: '',
-      type: 'photo' as const,
-      borderColor: '#bc57ca' as const,
-      pinned: false,
-      tags: [],
-      hasImage: false,
-      imageUrl: undefined,
-    };
-    addNote(newNoteData);
-    setTimeout(() => {
-      const noteId = useNotesStore.getState().notes[0]?.id;
-      if (noteId) {
-        const note = useNotesStore.getState().notes.find(n => n.id === noteId);
-        if (note) handleEditNote(note);
-      }
-    }, 100);
+    setEditingNote(null);
+    setNewNoteType('photo');
+    setTemplateData(null);
+    setIsModalOpen(true);
   };
 
   const searchedNotes = filterNotesBySearch(notes, debouncedSearchQuery);
@@ -302,7 +298,12 @@ function App() {
       <NoteModal
         ref={noteModalRef}
         isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setEditingNote(null); }}
+        onClose={() => { 
+          setIsModalOpen(false); 
+          setEditingNote(null); 
+          setNewNoteType('text');
+          setTemplateData(null);
+        }}
         onSave={handleSaveNote}
         onDelete={deleteNote}
         initialNote={editingNote}
@@ -312,6 +313,8 @@ function App() {
         }}
         onSaveAsTemplate={handleSaveAsTemplateFromModal}
         isTemplateLimitReached={templates.length >= 20}
+        newNoteType={newNoteType}
+        templateData={templateData}
       />
 
       <TemplateModal
@@ -319,8 +322,9 @@ function App() {
         onClose={() => setIsTemplateModalOpen(false)}
         onSelectTemplate={(template) => {
           const noteData = applyTemplate(template);
-          addNote(noteData);
+          setTemplateData(noteData);
           setIsTemplateModalOpen(false);
+          setIsModalOpen(true);
         }}
         templates={templates}
         onDeleteTemplate={deleteTemplate}

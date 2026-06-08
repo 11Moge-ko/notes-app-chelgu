@@ -87,11 +87,57 @@ export const FilterBar = forwardRef<{ close: () => void }, FilterBarProps>(({ se
     URL.revokeObjectURL(url);
   };
 
+    const handleImportData = () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json,.json';
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          
+          // Поддержка двух форматов:
+          // 1. Полная структура { notes, templates, settings, exportDate }
+          // 2. Просто массив заметок (для обратной совместимости)
+          const notes = Array.isArray(data) ? data : data.notes;
+          const templates = data.templates;
+          const settings = data.settings;
+          
+          if (!notes || !Array.isArray(notes)) {
+            alert('Неверный формат файла: отсутствуют заметки');
+            return;
+          }
+          
+          const proceed = confirm(
+            `Импорт ${notes.length} заметок${templates ? ` и ${templates.length} шаблонов` : ''}.\n\n` +
+            `Текущие данные будут ЗАМЕНЕНЫ. Продолжить?`
+          );
+          
+          if (!proceed) return;
+          
+          localStorage.setItem('notes_v1', JSON.stringify(notes));
+          if (templates && Array.isArray(templates)) {
+            localStorage.setItem('templates_v1', JSON.stringify(templates));
+          }
+          if (settings && typeof settings === 'object') {
+            localStorage.setItem('settings_v1', JSON.stringify(settings));
+          }
+          
+          window.location.reload();
+        } catch (error) {
+          console.error('Ошибка импорта:', error);
+          alert('Не удалось прочитать файл. Убедитесь, что это корректный JSON.');
+        }
+      };
+      input.click();
+  };
+
   const handleClearAllData = () => {
     if (confirm('Вы уверены? Вернуть заметки будет нельзя!')) {
       localStorage.removeItem('notes_v1');
-      localStorage.removeItem('templates_v1');
-      localStorage.removeItem('settings_v1');
       localStorage.removeItem('draft_v1');
       indexedDB.deleteDatabase('NotesAppDB');
       window.location.reload();
@@ -217,6 +263,12 @@ export const FilterBar = forwardRef<{ close: () => void }, FilterBarProps>(({ se
                 className="w-full text-left px-3 py-2 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
               >
                 📤 Экспорт в JSON
+              </button>
+              <button
+                onClick={handleImportData}
+                className="w-full text-left px-3 py-2 text-gray-300 hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2"
+              >
+                📥 Импорт из JSON
               </button>
               <button
                 onClick={handleClearAllData}
